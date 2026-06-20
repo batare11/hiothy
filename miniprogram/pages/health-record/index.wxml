@@ -1,0 +1,103 @@
+<view class="page">
+  <view class="archive-hero">
+    <view class="archive-title">我的健康档案</view>
+    <view class="archive-desc">
+      从 {{overview.firstRecordText || "首次记录"}} 开始，持续了解血压变化
+    </view>
+    <view class="archive-status">
+      <text class="status-light"></text>
+      数据已同步
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">健康档案加载中...</view>
+
+  <block wx:else>
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-value">{{overview.total || 0}}</view>
+        <view class="stat-label">累计记录</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value normal-value">{{overview.normal_rate || 0}}%</view>
+        <view class="stat-label">指标正常率</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value warning-value">{{overview.abnormal_count || 0}}</view>
+        <view class="stat-label">异常记录</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value">{{overview.monthly.length || 0}}</view>
+        <view class="stat-label">近年有记录月份</view>
+      </view>
+    </view>
+
+    <view class="card latest-card">
+      <view class="card-heading">
+        <view>
+          <view class="section-title">最近一次测量</view>
+          <view class="section-desc">{{overview.latestTime || "暂无测量记录"}}</view>
+        </view>
+        <view wx:if="{{overview.latest}}" class="latest-status status-{{overview.latest.status}}">
+          {{overview.latest.status_text}}
+        </view>
+      </view>
+      <view wx:if="{{overview.latest}}" class="latest-values">
+        <view class="latest-main">
+          <text class="latest-pressure">{{overview.latest.systolic}}/{{overview.latest.diastolic}}</text>
+          <text class="latest-unit">mmHg</text>
+        </view>
+        <view class="latest-heart">心率 {{overview.latest.heart_rate || "--"}} 次/分</view>
+      </view>
+      <view wx:else class="empty-state">还没有血压记录</view>
+    </view>
+
+    <view class="card">
+      <view class="section-title">历史平均水平</view>
+      <view class="average-row">
+        <view class="average-item">
+          <view class="average-value">{{overview.averages.systolic || "--"}}</view>
+          <view class="average-label">平均高压</view>
+        </view>
+        <view class="average-item">
+          <view class="average-value">{{overview.averages.diastolic || "--"}}</view>
+          <view class="average-label">平均低压</view>
+        </view>
+        <view class="average-item">
+          <view class="average-value">{{overview.averages.heart_rate || "--"}}</view>
+          <view class="average-label">平均心率</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-heading">
+        <view>
+          <view class="section-title">近 12 个月概览</view>
+          <view class="section-desc">每月平均血压及记录次数</view>
+        </view>
+      </view>
+      <view wx:if="{{!overview.monthly.length}}" class="empty-state">暂无月度数据</view>
+      <scroll-view wx:else class="month-scroll" scroll-x>
+        <view class="month-list">
+          <view wx:for="{{overview.monthly}}" wx:key="month" class="month-item">
+            <view class="month-name">{{item.month}}</view>
+            <view class="month-pressure">{{item.systolic}}/{{item.diastolic}}</view>
+            <view class="month-heart">心率 {{item.heart_rate || "--"}}</view>
+            <view class="month-count">{{item.count}} 次</view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view class="card export-card">
+      <view class="section-title">就诊资料</view>
+      <view class="section-desc">生成结构化摘要，可复制后发送给医生或家人</view>
+      <button class="export-btn" bindtap="copyMedicalSummary">复制就诊摘要</button>
+    </view>
+
+    <view class="archive-notice">
+      健康档案用于记录与趋势参考，不替代医生诊断。血压严重异常或身体不适时请及时就医。
+    </view>
+  </block>
+</view>

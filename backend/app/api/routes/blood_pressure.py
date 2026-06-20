@@ -62,17 +62,36 @@ def create_record(
 def list_records(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    start_time: datetime | None = Query(
+        default=None,
+        description="测量开始时间，精确到秒",
+    ),
+    end_time: datetime | None = Query(
+        default=None,
+        description="测量结束时间，精确到秒",
+    ),
     mini_user_id: str = Depends(get_mini_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
+    if start_time and end_time and start_time > end_time:
+        raise HTTPException(status_code=422, detail="开始时间不能晚于结束时间")
+
     base = select(BloodPressureRecord).where(
         BloodPressureRecord.mini_user_id == mini_user_id
     )
+    if start_time:
+        base = base.where(BloodPressureRecord.created_at >= start_time)
+    if end_time:
+        base = base.where(BloodPressureRecord.created_at <= end_time)
+
     total = db.scalar(
         select(func.count()).select_from(base.subquery())
     ) or 0
     records = db.scalars(
-        base.order_by(BloodPressureRecord.created_at.desc())
+        base.order_by(
+            BloodPressureRecord.created_at.desc(),
+            BloodPressureRecord.id.desc(),
+        )
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()
@@ -84,6 +103,89 @@ def list_records(
             "total": total,
             "page": page,
             "page_size": page_size,
+            "total_pages": max(1, (total + page_size - 1) // page_size),
+        },
+    }
+
+
+@router.get("/overview")
+def health_archive_overview(
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """返回健康档案汇总及近十二个月趋势。"""
+    records = db.scalars(
+        select(BloodPressureRecord)
+        .where(BloodPressureRecord.mini_user_id == mini_user_id)
+        .order_by(BloodPressureRecord.created_at.desc())
+    ).all()
+    total = len(records)
+    normal_count = sum(
+        classify_pressure(item.systolic, item.diastolic)[0] == "normal"
+        for item in records
+    )
+    abnormal_count = total - normal_count
+    avg = lambda values: round(sum(values) / len(values), 1) if values else None
+
+    end = datetime.now()
+    # 当前自然月加前 11 个自然月，保证页面始终最多展示 12 个月。
+    start_month_index = end.year * 12 + end.month - 1 - 11
+    start = datetime(
+        start_month_index // 12,
+        start_month_index % 12 + 1,
+        1,
+    )
+    month_bucket = func.date_trunc("month", BloodPressureRecord.created_at)
+    monthly_rows = db.execute(
+        select(
+            func.to_char(month_bucket, "YYYY-MM").label("month"),
+            func.round(func.avg(BloodPressureRecord.systolic), 1),
+            func.round(func.avg(BloodPressureRecord.diastolic), 1),
+            func.round(func.avg(BloodPressureRecord.heart_rate), 1),
+            func.count(BloodPressureRecord.id),
+        )
+        .where(
+            BloodPressureRecord.mini_user_id == mini_user_id,
+            BloodPressureRecord.created_at >= start,
+            BloodPressureRecord.created_at <= end,
+        )
+        .group_by(month_bucket)
+        .order_by(month_bucket)
+    ).all()
+
+    first_record_at = min(
+        (item.created_at for item in records),
+        default=None,
+    )
+    latest = serialize_record(records[0]) if records else None
+    normal_rate = round(normal_count / total * 100, 1) if total else 0
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "total": total,
+            "normal_count": normal_count,
+            "abnormal_count": abnormal_count,
+            "normal_rate": normal_rate,
+            "first_record_at": first_record_at,
+            "latest": latest,
+            "averages": {
+                "systolic": avg([item.systolic for item in records]),
+                "diastolic": avg([item.diastolic for item in records]),
+                "heart_rate": avg(
+                    [item.heart_rate for item in records if item.heart_rate]
+                ),
+            },
+            "monthly": [
+                {
+                    "month": row[0],
+                    "systolic": float(row[1]) if row[1] is not None else None,
+                    "diastolic": float(row[2]) if row[2] is not None else None,
+                    "heart_rate": float(row[3]) if row[3] is not None else None,
+                    "count": row[4],
+                }
+                for row in monthly_rows
+            ],
         },
     }
 

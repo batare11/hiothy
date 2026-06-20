@@ -21,11 +21,19 @@
 }
 
 .hero-badge {
+  display: flex;
+  align-items: center;
   padding: 12rpx 18rpx;
   background: rgba(255, 255, 255, 0.18);
   border: 1rpx solid rgba(255, 255, 255, 0.32);
   border-radius: 999rpx;
   font-size: 22rpx;
+}
+
+.hero-arrow {
+  margin-left: 8rpx;
+  font-size: 30rpx;
+  line-height: 1;
 }
 
 .upload-area {
@@ -286,6 +294,20 @@
   font-size: 22rpx;
 }
 
+.recent-actions {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.more-records-btn {
+  padding: 8rpx 16rpx;
+  color: #1677FF;
+  background: #E8F3FF;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+}
+
 .record-row {
   display: flex;
   align-items: center;
@@ -351,3 +373,285 @@
   background: #FFF1F0;
 }
 
+.modal-mask {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28rpx;
+  background: rgba(0, 0, 0, 0.52);
+}
+
+.records-modal {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-height: 92vh;
+  padding: 28rpx;
+  flex-direction: column;
+  background: #FFFFFF;
+  border-radius: 26rpx;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.modal-subtitle {
+  margin-top: 5rpx;
+  color: #86909C;
+  font-size: 21rpx;
+}
+
+.modal-close {
+  display: flex;
+  width: 56rpx;
+  height: 56rpx;
+  align-items: center;
+  justify-content: center;
+  color: #86909C;
+  background: #F2F3F5;
+  border-radius: 50%;
+  font-size: 38rpx;
+}
+
+.record-filter {
+  margin-top: 22rpx;
+  padding: 20rpx;
+  background: #F7F8FA;
+  border-radius: 16rpx;
+}
+
+.filter-label,
+.edit-label {
+  color: #4E5969;
+  font-size: 22rpx;
+}
+
+.filter-end-label {
+  margin-top: 14rpx;
+}
+
+.datetime-input,
+.edit-input {
+  height: 70rpx;
+  margin-top: 8rpx;
+  padding: 0 18rpx;
+  background: #FFFFFF;
+  border: 1rpx solid #E5E6EB;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+}
+
+.filter-actions,
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.filter-reset-btn,
+.filter-query-btn,
+.edit-cancel-btn,
+.edit-save-btn {
+  height: 68rpx;
+  margin: 0;
+  padding: 0 28rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  line-height: 68rpx;
+}
+
+.filter-reset-btn,
+.edit-cancel-btn {
+  color: #4E5969;
+  background: #F2F3F5;
+}
+
+.filter-query-btn,
+.edit-save-btn {
+  color: #FFFFFF;
+  background: #0960D8;
+}
+
+.records-scroll {
+  height: 660rpx;
+  margin-top: 20rpx;
+}
+
+.modal-empty {
+  padding: 100rpx 20rpx;
+  color: #86909C;
+  text-align: center;
+}
+
+.all-record-item {
+  margin-bottom: 18rpx;
+  padding: 22rpx;
+  background: #F7F8FA;
+  border-radius: 16rpx;
+}
+
+.all-record-top,
+.all-record-body,
+.record-operation-row {
+  display: flex;
+  align-items: center;
+}
+
+.all-record-top {
+  justify-content: space-between;
+}
+
+.all-record-time {
+  color: #4E5969;
+  font-size: 23rpx;
+}
+
+.all-record-body {
+  align-items: flex-end;
+  margin-top: 16rpx;
+}
+
+.all-record-reading {
+  flex: 1;
+}
+
+.all-record-pressure {
+  font-size: 36rpx;
+  font-weight: 600;
+}
+
+.all-record-unit {
+  margin-left: 8rpx;
+  color: #86909C;
+  font-size: 19rpx;
+}
+
+.all-record-heart {
+  display: block;
+  margin-top: 5rpx;
+  color: #FA8C16;
+  font-size: 21rpx;
+}
+
+.all-record-note {
+  max-width: 260rpx;
+  overflow: hidden;
+  color: #86909C;
+  font-size: 21rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-operation-row {
+  justify-content: flex-end;
+  gap: 14rpx;
+  margin-top: 16rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid #E5E6EB;
+}
+
+.record-edit-btn,
+.record-delete-btn {
+  height: 58rpx;
+  margin: 0;
+  padding: 0 24rpx;
+  border-radius: 10rpx;
+  font-size: 22rpx;
+  line-height: 58rpx;
+}
+
+.record-edit-btn {
+  color: #1677FF;
+  background: #E8F3FF;
+}
+
+.record-delete-btn {
+  color: #F53F3F;
+  background: #FFF1F0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18rpx;
+}
+
+.page-btn {
+  height: 62rpx;
+  margin: 0;
+  padding: 0 22rpx;
+  color: #1677FF;
+  background: #E8F3FF;
+  border-radius: 10rpx;
+  font-size: 22rpx;
+  line-height: 62rpx;
+}
+
+.page-btn[disabled] {
+  color: #C9CDD4;
+  background: #F2F3F5;
+}
+
+.page-info {
+  color: #86909C;
+  font-size: 20rpx;
+}
+
+.edit-panel {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28rpx;
+  background: rgba(0, 0, 0, 0.48);
+  border-radius: 26rpx;
+}
+
+.edit-card {
+  width: 100%;
+  padding: 26rpx;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14rpx;
+  margin-top: 22rpx;
+}
+
+.edit-time-label {
+  margin-top: 18rpx;
+}
+
+.full-edit-input {
+  width: 100%;
+}
+
+.readonly-time {
+  height: 70rpx;
+  margin-top: 8rpx;
+  padding: 0 18rpx;
+  color: #86909C;
+  background: #F2F3F5;
+  border: 1rpx solid #E5E6EB;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  line-height: 70rpx;
+}

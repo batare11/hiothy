@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/home/index",
+    "pages/health-record/index",
     "pages/messages/index",
     "pages/profile/index"
   ],

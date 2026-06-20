@@ -12,6 +12,11 @@ function formatDateTime(value) {
   return `${formatDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function formatDateTimeSeconds(value) {
+  const date = new Date(value);
+  return `${formatDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function oneYearAgo() {
   const date = new Date();
   date.setFullYear(date.getFullYear() - 1);
@@ -21,6 +26,6 @@ function oneYearAgo() {
 module.exports = {
   formatDate,
   formatDateTime,
+  formatDateTimeSeconds,
   oneYearAgo
 };
-

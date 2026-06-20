@@ -1,5 +1,9 @@
 const { request, uploadImage } = require("../../utils/request");
-const { formatDate, formatDateTime, oneYearAgo } = require("../../utils/date");
+const {
+  formatDate,
+  formatDateTimeSeconds,
+  oneYearAgo
+} = require("../../utils/date");
 const { normalizeOcrResult } = require("../../utils/ocr");
 
 Page({
@@ -27,7 +31,28 @@ Page({
     trendPoints: [],
     summary: {},
     records: [],
-    recordTotal: 0
+    recordTotal: 0,
+    recordsModalVisible: false,
+    allRecordsLoading: false,
+    allRecords: [],
+    recordsPage: 1,
+    recordsPageSize: 10,
+    recordsTotal: 0,
+    recordsTotalPages: 1,
+    recordFilters: {
+      startTime: "",
+      endTime: ""
+    },
+    editVisible: false,
+    editSaving: false,
+    editForm: {
+      id: null,
+      systolic: "",
+      diastolic: "",
+      heartRate: "",
+      measuredAt: "",
+      note: ""
+    }
   },
 
   onLoad() {
@@ -45,6 +70,10 @@ Page({
   async refreshPage() {
     await Promise.all([this.loadTrend(), this.loadRecords()]);
     this.setData({ hasLoaded: true });
+  },
+
+  openHealthRecord() {
+    wx.navigateTo({ url: "/pages/health-record/index" });
   },
 
   chooseImage() {
@@ -198,18 +227,231 @@ Page({
     try {
       const response = await request({
         url: "/blood-pressure",
-        data: { page: 1, page_size: 5 },
+        data: { page: 1, page_size: 3 },
         silent: true
       });
       const data = response.data || {};
       const records = (data.items || []).map((item) => ({
         ...item,
-        displayTime: formatDateTime(item.created_at)
+        displayTime: formatDateTimeSeconds(item.created_at)
       }));
       this.setData({ records, recordTotal: data.total || 0 });
     } catch (error) {
       this.setData({ records: [], recordTotal: 0 });
     }
+  },
+
+  noop() {},
+
+  openRecordsModal() {
+    this.setData({
+      recordsModalVisible: true,
+      recordsPage: 1,
+      editVisible: false
+    }, () => this.loadAllRecords());
+  },
+
+  closeRecordsModal() {
+    if (this.data.editSaving) return;
+    this.setData({
+      recordsModalVisible: false,
+      editVisible: false
+    });
+  },
+
+  handleFilterInput(event) {
+    const field = event.currentTarget.dataset.field;
+    this.setData({ [`recordFilters.${field}`]: event.detail.value });
+  },
+
+  normalizeQueryTime(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
+      throw new Error("时间格式应为 YYYY-MM-DD HH:mm:ss");
+    }
+    const date = new Date(text.replace(" ", "T"));
+    if (Number.isNaN(date.getTime())) {
+      throw new Error("请输入有效时间");
+    }
+    return text.replace(" ", "T");
+  },
+
+  queryAllRecords() {
+    this.setData({ recordsPage: 1 }, () => this.loadAllRecords());
+  },
+
+  resetRecordFilters() {
+    this.setData({
+      recordFilters: { startTime: "", endTime: "" },
+      recordsPage: 1
+    }, () => this.loadAllRecords());
+  },
+
+  async loadAllRecords() {
+    if (this.data.allRecordsLoading) return;
+    let startTime = "";
+    let endTime = "";
+    try {
+      startTime = this.normalizeQueryTime(this.data.recordFilters.startTime);
+      endTime = this.normalizeQueryTime(this.data.recordFilters.endTime);
+      if (startTime && endTime && startTime > endTime) {
+        throw new Error("开始时间不能晚于结束时间");
+      }
+    } catch (error) {
+      wx.showToast({ title: error.message, icon: "none" });
+      return;
+    }
+
+    this.setData({ allRecordsLoading: true });
+    try {
+      const response = await request({
+        url: "/blood-pressure",
+        data: {
+          page: this.data.recordsPage,
+          page_size: this.data.recordsPageSize,
+          ...(startTime ? { start_time: startTime } : {}),
+          ...(endTime ? { end_time: endTime } : {})
+        }
+      });
+      const data = response.data || {};
+      const allRecords = (data.items || []).map((item) => ({
+        ...item,
+        displayTime: formatDateTimeSeconds(item.created_at)
+      }));
+      this.setData({
+        allRecords,
+        recordsTotal: data.total || 0,
+        recordsTotalPages: data.total_pages || 1
+      });
+    } finally {
+      this.setData({ allRecordsLoading: false });
+    }
+  },
+
+  previousRecordsPage() {
+    if (this.data.recordsPage <= 1 || this.data.allRecordsLoading) return;
+    this.setData({
+      recordsPage: this.data.recordsPage - 1
+    }, () => this.loadAllRecords());
+  },
+
+  nextRecordsPage() {
+    if (
+      this.data.recordsPage >= this.data.recordsTotalPages ||
+      this.data.allRecordsLoading
+    ) return;
+    this.setData({
+      recordsPage: this.data.recordsPage + 1
+    }, () => this.loadAllRecords());
+  },
+
+  openEditRecord(event) {
+    const id = Number(event.currentTarget.dataset.id);
+    const record = this.data.allRecords.find((item) => item.id === id);
+    if (!record) return;
+    this.setData({
+      editVisible: true,
+      editForm: {
+        id: record.id,
+        systolic: String(record.systolic),
+        diastolic: String(record.diastolic),
+        heartRate: record.heart_rate ? String(record.heart_rate) : "",
+        measuredAt: formatDateTimeSeconds(record.created_at),
+        note: record.note || ""
+      }
+    });
+  },
+
+  closeEditRecord() {
+    if (!this.data.editSaving) {
+      this.setData({ editVisible: false });
+    }
+  },
+
+  handleEditInput(event) {
+    const field = event.currentTarget.dataset.field;
+    this.setData({ [`editForm.${field}`]: event.detail.value });
+  },
+
+  validateEditForm() {
+    const form = this.data.editForm;
+    const systolic = Number(form.systolic);
+    const diastolic = Number(form.diastolic);
+    const heartRate = form.heartRate ? Number(form.heartRate) : null;
+    if (!systolic || systolic < 50 || systolic > 260) return "高压范围应为 50～260";
+    if (!diastolic || diastolic < 30 || diastolic > 180) return "低压范围应为 30～180";
+    if (systolic <= diastolic) return "高压应大于低压";
+    if (heartRate && (heartRate < 30 || heartRate > 220)) return "心率范围应为 30～220";
+    return "";
+  },
+
+  async saveEditedRecord() {
+    const errorMessage = this.validateEditForm();
+    if (errorMessage) {
+      wx.showToast({ title: errorMessage, icon: "none" });
+      return;
+    }
+    if (this.data.editSaving) return;
+    this.setData({ editSaving: true });
+    const form = this.data.editForm;
+    try {
+      await request({
+        url: `/blood-pressure/${form.id}`,
+        method: "PUT",
+        data: {
+          systolic: Number(form.systolic),
+          diastolic: Number(form.diastolic),
+          heart_rate: form.heartRate ? Number(form.heartRate) : null,
+          note: form.note || null
+        }
+      });
+      wx.showToast({ title: "记录更新成功", icon: "success" });
+      this.setData({ editVisible: false });
+      await Promise.all([
+        this.loadAllRecords(),
+        this.loadRecords(),
+        this.loadTrend()
+      ]);
+    } finally {
+      this.setData({ editSaving: false });
+    }
+  },
+
+  deleteRecord(event) {
+    const id = Number(event.currentTarget.dataset.id);
+    const record = this.data.allRecords.find((item) => item.id === id);
+    if (!record) return;
+    wx.showModal({
+      title: "确认删除",
+      content: `确定删除 ${record.displayTime} 的血压记录吗？删除后无法恢复。`,
+      confirmText: "删除",
+      confirmColor: "#F53F3F",
+      success: async (result) => {
+        if (!result.confirm) return;
+        try {
+          await request({
+            url: `/blood-pressure/${id}`,
+            method: "DELETE"
+          });
+          wx.showToast({ title: "已删除", icon: "success" });
+          const nextTotal = Math.max(0, this.data.recordsTotal - 1);
+          const nextTotalPages = Math.max(
+            1,
+            Math.ceil(nextTotal / this.data.recordsPageSize)
+          );
+          const nextPage = Math.min(this.data.recordsPage, nextTotalPages);
+          this.setData({ recordsPage: nextPage });
+          await Promise.all([
+            this.loadAllRecords(),
+            this.loadRecords(),
+            this.loadTrend()
+          ]);
+        } catch (error) {
+          // request 已统一展示错误。
+        }
+      }
+    });
   },
 
   drawChart() {
