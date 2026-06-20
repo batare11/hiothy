@@ -2,6 +2,7 @@ from PIL import Image
 
 from app.services.ocr import (
     _field_from_label,
+    _select_candidate_values,
     crop_detected_region,
     extract_values,
     infer_values_from_position,
@@ -73,3 +74,33 @@ def test_crop_detected_region_uses_all_text_bounds():
     assert cropped is not None
     assert cropped.width > 800
     assert cropped.height > 800
+
+
+def test_candidate_selection_prefers_complete_distinct_three_row_values():
+    values, method = _select_candidate_values(
+        [
+            (
+                {"systolic": 125, "diastolic": 69, "heart_rate": 69},
+                "text+three_row_display",
+            ),
+            (
+                {"systolic": 125, "diastolic": 81, "heart_rate": 69},
+                "three_row_display",
+            ),
+        ]
+    )
+    assert values == {"systolic": 125, "diastolic": 81, "heart_rate": 69}
+    assert method == "three_row_display"
+
+
+def test_candidate_selection_rejects_implausibly_narrow_pulse_pressure():
+    values, _ = _select_candidate_values(
+        [
+            ({"systolic": 98, "diastolic": 96, "heart_rate": 88}, "text"),
+            (
+                {"systolic": 154, "diastolic": 96, "heart_rate": 88},
+                "three_row_display",
+            ),
+        ]
+    )
+    assert values == {"systolic": 154, "diastolic": 96, "heart_rate": 88}

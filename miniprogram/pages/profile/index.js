@@ -24,8 +24,12 @@ Page({
   },
 
   onLoad() {
-    const userId = getApp().globalData.miniUserId || wx.getStorageSync("miniUserId");
-    this.setData({ shortUserId: userId.slice(-12) });
+    getApp().ensureLogin().then(() => {
+      const userId = getApp().globalData.miniUserId || wx.getStorageSync("wechatUserId");
+      this.setData({ shortUserId: userId.slice(-12) });
+    }).catch(() => {
+      this.setData({ shortUserId: "登录失败" });
+    });
   },
 
   onShow() {
@@ -126,4 +130,3 @@ Page({
     }
   }
 });
-

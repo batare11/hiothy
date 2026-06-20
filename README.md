@@ -29,7 +29,8 @@ python run.py
 1. 使用微信开发者工具导入 `miniprogram/`。
 2. 在 `miniprogram/config/index.js` 中设置后端地址。
 3. 本地调试可将地址改为 `http://127.0.0.1:5000/api/v1`，并在开发者工具中勾选“不校验合法域名”。
-4. 生产环境建议通过 Nginx 将 `https://hiothy.cn/api/v1` 反向代理到 `127.0.0.1:5000/api/v1`，并在微信公众平台配置 `request`、`uploadFile` 合法域名。
+4. 生产环境通过 Nginx 将 `https://hiothy.cn/api/v1` 反向代理到 `127.0.0.1:5000/api/v1`，并在微信公众平台配置 `request`、`uploadFile` 合法域名。
+5. 小程序启动时调用 `wx.login`，后端通过微信 `code2Session` 获取真实 openid，并签发 Bearer Token。
 
 ## 项目结构
 
@@ -50,4 +51,3 @@ miniprogram/
 ```
 
 详细说明见 `backend/README.md` 和 `miniprogram/README.md`。
-

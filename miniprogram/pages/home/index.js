@@ -119,7 +119,11 @@ Page({
         icon: result.complete ? "success" : "none"
       });
     } catch (error) {
-      this.setData({ ocrNotice: "未能完整识别，请手动填写或重新拍摄。" });
+      const message = error && error.message
+        ? error.message
+        : "未能完整识别，请手动填写或重新拍摄。";
+      this.setData({ ocrNotice: message });
+      console.error("OCR failed", error);
     } finally {
       this.setData({ ocrLoading: false });
     }

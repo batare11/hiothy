@@ -365,30 +365,71 @@ def _candidate_score(values: dict[str, int | None]) -> tuple[int, int]:
     return int(complete), count
 
 
+def _candidate_rank(
+    values: dict[str, int | None],
+    method: str = "",
+) -> tuple[int, int, int, int, int]:
+    """评价候选质量，避免较早的错误数字污染后续正确策略。"""
+    systolic = values.get("systolic")
+    diastolic = values.get("diastolic")
+    heart_rate = values.get("heart_rate")
+    complete, count = _candidate_score(values)
+    non_null = [value for value in values.values() if value is not None]
+    distinct = len(set(non_null))
+    plausible_pulse_pressure = int(
+        bool(
+            systolic
+            and diastolic
+            and 10 <= systolic - diastolic <= 150
+        )
+    )
+    # 基于屏幕行裁剪的结果通常比整图零散文本更可靠。
+    method_priority = {
+        "three_row_display": 4,
+        "labeled_rows": 3,
+        "position": 2,
+        "text": 1,
+    }.get(method, 0)
+    return complete, count, plausible_pulse_pressure, distinct, method_priority
+
+
+def _select_candidate_values(
+    candidates: list[tuple[dict[str, int | None], str]],
+) -> tuple[dict[str, int | None], str]:
+    return max(
+        candidates,
+        key=lambda item: _candidate_rank(item[0], item[1]),
+    )
+
+
 def _recognize_image_candidate(
     image: Image.Image,
     engine: Any,
 ) -> tuple[dict[str, int | None], list[str], str]:
     result, _ = engine(image)
     texts = [str(line[1]) for line in (result or []) if len(line) >= 2]
-    values = extract_values(texts)
-    method = "text"
-
+    text_values = extract_values(texts)
     labeled = recognize_labeled_rows(image, result or [], engine)
-    if _candidate_score(labeled) > _candidate_score(values):
-        method = "labeled_rows"
-    values = _merge_values(values, labeled)
-
     positioned = infer_values_from_position(result or [])
-    if _candidate_score(positioned) > _candidate_score(values):
-        method = "position"
-    values = _merge_values(values, positioned)
+    three_rows = recognize_three_row_display(image, result or [], engine)
 
-    if _candidate_score(values) != (1, 3):
-        three_rows = recognize_three_row_display(image, result or [], engine)
-        if _candidate_score(three_rows) > _candidate_score(values):
-            method = "three_row_display"
-        values = _merge_values(values, three_rows)
+    strategy_candidates = [
+        (text_values, "text"),
+        (labeled, "labeled_rows"),
+        (positioned, "position"),
+        (three_rows, "three_row_display"),
+    ]
+
+    # 允许互补策略补齐缺失字段，同时把独立候选保留参与评分。
+    original_candidates = list(strategy_candidates)
+    for base_values, base_method in original_candidates:
+        for extra_values, extra_method in original_candidates:
+            if base_method == extra_method:
+                continue
+            merged = _merge_values(base_values, extra_values)
+            strategy_candidates.append((merged, f"{base_method}+{extra_method}"))
+
+    values, method = _select_candidate_values(strategy_candidates)
     return values, texts, method
 
 
@@ -419,7 +460,7 @@ def recognize_blood_pressure(content: bytes) -> dict:
 
     values, texts, method = max(
         candidates,
-        key=lambda item: _candidate_score(item[0]),
+        key=lambda item: _candidate_rank(item[0], item[2]),
     )
     complete = _candidate_score(values)[0] == 1
     all_fields_complete = complete and values["heart_rate"] is not None

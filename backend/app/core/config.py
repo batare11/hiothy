@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     )
     allowed_origins: str = "https://hiothy.cn"
     max_upload_mb: int = 10
+    wechat_app_id: str = ""
+    wechat_app_secret: str = ""
+    auth_token_secret: str = ""
+    auth_token_expire_days: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",

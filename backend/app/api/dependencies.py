@@ -1,11 +1,15 @@
 """API 公共依赖。"""
 
-from fastapi import Header
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from app.services.auth import verify_access_token
+
+bearer_scheme = HTTPBearer(auto_error=True)
 
 
 def get_mini_user_id(
-    x_mini_user_id: str = Header(default="demo-user", max_length=100),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> str:
-    """开发期从请求头识别用户；上线后应替换为微信 code2Session 鉴权。"""
-    return x_mini_user_id
-
+    """从后端签发的 Bearer Token 中取得可信微信 openid。"""
+    return verify_access_token(credentials.credentials)

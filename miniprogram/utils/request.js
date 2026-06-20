@@ -4,9 +4,9 @@ const {
   UPLOAD_TIMEOUT
 } = require("../config/index");
 
-function getUserId() {
+function getAccessToken() {
   const app = getApp();
-  return app.globalData.miniUserId || wx.getStorageSync("miniUserId") || "demo-user";
+  return app.globalData.accessToken || wx.getStorageSync("accessToken") || "";
 }
 
 function showError(message) {
@@ -18,7 +18,9 @@ function showError(message) {
 }
 
 function getNetworkErrorMessage(error, action = "请求") {
-  const detail = error && error.errMsg ? error.errMsg : "";
+  const detail = error && (error.errMsg || error.message)
+    ? (error.errMsg || error.message)
+    : "";
   const lowerDetail = detail.toLowerCase();
 
   if (lowerDetail.includes("timeout")) {
@@ -40,7 +42,7 @@ function getNetworkErrorMessage(error, action = "请求") {
   return `${action}失败：${detail || "请检查后端服务和网络配置"}`;
 }
 
-function request(options) {
+function sendRequest(options, token) {
   return new Promise((resolve, reject) => {
     wx.request({
       url: `${BASE_URL}${options.url}`,
@@ -49,7 +51,7 @@ function request(options) {
       timeout: REQUEST_TIMEOUT,
       header: {
         "content-type": "application/json",
-        "X-Mini-User-Id": getUserId(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.header || {})
       },
       success(res) {
@@ -58,25 +60,41 @@ function request(options) {
           return;
         }
         const message = res.data && (res.data.detail || res.data.message);
-        if (!options.silent) showError(message);
-        reject(new Error(message || `请求失败（${res.statusCode}）`));
+        const error = new Error(message || `请求失败（${res.statusCode}）`);
+        error.statusCode = res.statusCode;
+        reject(error);
       },
       fail(error) {
-        if (!options.silent) {
-          showError(getNetworkErrorMessage(error));
-        }
-        reject(error);
+        reject(new Error(getNetworkErrorMessage(error)));
       }
     });
   });
 }
 
+async function request(options) {
+  const needsAuth = options.auth !== false;
+  let token = "";
+  if (needsAuth) token = await getApp().ensureLogin();
+
+  try {
+    return await sendRequest(options, token);
+  } catch (error) {
+    if (needsAuth && error.statusCode === 401 && !options._retried) {
+      await getApp().ensureLogin(true);
+      return request({ ...options, _retried: true });
+    }
+    if (!options.silent) showError(error.message);
+    throw error;
+  }
+}
+
 function checkBackend() {
   return request({
     url: "/health",
+    auth: false,
     silent: true
   }).catch((error) => {
-    const message = getNetworkErrorMessage(error, "连接后端");
+    const message = error.message || getNetworkErrorMessage(error, "连接后端");
     showError(message);
     throw new Error(message);
   });
@@ -86,6 +104,11 @@ async function uploadImage(filePath) {
   // 先验证基础连接，避免把“后端未启动”误报成“图片上传失败”。
   await checkBackend();
 
+  await getApp().ensureLogin();
+  return uploadImageOnce(filePath, false);
+}
+
+function uploadImageOnce(filePath, retried) {
   return new Promise((resolve, reject) => {
     wx.uploadFile({
       url: `${BASE_URL}/ocr/blood-pressure`,
@@ -93,7 +116,7 @@ async function uploadImage(filePath) {
       name: "file",
       timeout: UPLOAD_TIMEOUT,
       header: {
-        "X-Mini-User-Id": getUserId()
+        Authorization: `Bearer ${getAccessToken()}`
       },
       success(res) {
         let body = {};
@@ -105,6 +128,13 @@ async function uploadImage(filePath) {
         }
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(body);
+          return;
+        }
+        if (res.statusCode === 401 && !retried) {
+          getApp().ensureLogin(true)
+            .then(() => uploadImageOnce(filePath, true))
+            .then(resolve)
+            .catch(reject);
           return;
         }
         const message = body.detail || body.message || "图片识别失败";

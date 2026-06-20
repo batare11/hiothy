@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models.feedback import Feedback
 from app.models.user_profile import UserProfile
 from app.schemas.user import FeedbackCreate, UserProfileUpdate
+from app.services.auth import public_user_id
 
 router = APIRouter(tags=["users"])
 
@@ -28,7 +29,7 @@ def get_or_create_profile(db: Session, mini_user_id: str) -> UserProfile:
 
 def serialize_profile(profile: UserProfile) -> dict:
     return {
-        "mini_user_id": profile.mini_user_id,
+        "mini_user_id": public_user_id(profile.mini_user_id),
         "nickname": profile.nickname,
         "avatar_url": profile.avatar_url,
         "gender": profile.gender,
@@ -83,4 +84,3 @@ def create_feedback(
             "created_at": feedback.created_at,
         },
     }
-

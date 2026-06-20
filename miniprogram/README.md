@@ -8,10 +8,7 @@
 4. 修改 `config/index.js` 中的 `BASE_URL`：
 
 ```js
-// 本机模拟器调试
-const BASE_URL = "http://127.0.0.1:5000/api/v1";
-
-// 正式环境
+// 开发版、体验版和正式版
 const BASE_URL = "https://hiothy.cn/api/v1";
 ```
 
@@ -26,6 +23,6 @@ const BASE_URL = "https://hiothy.cn/api/v1";
 ## 生产环境说明
 
 - 在微信公众平台添加 `https://hiothy.cn` 为 `request` 和 `uploadFile` 合法域名。
-- 当前开发版使用本地随机 ID 模拟用户身份。正式上线必须实现 `wx.login`，由后端调用微信 `code2Session` 获取 openid，并签发自己的登录令牌。
+- 开发版、体验版和正式版均通过 `wx.login` 获取真实微信身份。后端 AppID 必须与 `project.config.json` 一致。
+- AppSecret 只配置在服务器 `.env`，不要写入小程序代码。
 - `chooseAvatar` 返回的是临时文件路径；生产版应增加头像上传接口，将图片存储到对象存储后再保存永久 URL。
-
