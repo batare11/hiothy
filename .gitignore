@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets and local runtime files
+backend/.env
+backend/uploads/
+backend/*.log
+
+# WeChat developer tool local settings
+miniprogram/project.private.config.json
+
+# IDE settings
+.idea/

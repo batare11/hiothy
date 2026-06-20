@@ -1,0 +1,86 @@
+<view class="page">
+  <view class="profile-hero">
+    <button class="avatar-button" open-type="chooseAvatar" bindchooseavatar="chooseAvatar">
+      <image wx:if="{{profile.avatar_url}}" class="avatar" src="{{profile.avatar_url}}" mode="aspectFill"></image>
+      <view wx:else class="avatar avatar-placeholder">{{avatarLetter}}</view>
+    </button>
+    <view class="profile-main">
+      <view class="profile-name">{{profile.nickname || "微信用户"}}</view>
+      <view class="profile-id">健康档案 ID：{{shortUserId}}</view>
+    </view>
+    <view class="safe-tag">资料安全</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">个人信息</view>
+    <view class="section-desc">完善资料，获得更连续的健康记录</view>
+
+    <view class="profile-row">
+      <view class="row-label">昵称</view>
+      <input
+        class="row-input"
+        type="nickname"
+        value="{{profile.nickname}}"
+        data-field="nickname"
+        bindinput="handleProfileInput"
+        placeholder="请输入昵称"
+      />
+    </view>
+    <view class="profile-row">
+      <view class="row-label">性别</view>
+      <picker range="{{genderOptions}}" value="{{genderIndex}}" bindchange="changeGender">
+        <view class="row-value">{{profile.gender || "请选择"}} ›</view>
+      </picker>
+    </view>
+    <view class="profile-row">
+      <view class="row-label">出生日期</view>
+      <picker mode="date" value="{{profile.birth_date}}" end="{{today}}" bindchange="changeBirthDate">
+        <view class="row-value">{{profile.birth_date || "请选择"}} ›</view>
+      </picker>
+    </view>
+    <view class="profile-row">
+      <view class="row-label">手机号</view>
+      <input
+        class="row-input"
+        type="number"
+        maxlength="20"
+        value="{{profile.phone}}"
+        data-field="phone"
+        bindinput="handleProfileInput"
+        placeholder="选填"
+      />
+    </view>
+    <button class="primary-btn profile-save" loading="{{saving}}" bindtap="saveProfile">保存资料</button>
+  </view>
+
+  <view class="card">
+    <view class="section-title">意见反馈</view>
+    <view class="section-desc">你的建议会帮助我们把产品做得更好</view>
+    <textarea
+      class="feedback-input"
+      maxlength="2000"
+      value="{{feedback.content}}"
+      data-field="content"
+      bindinput="handleFeedbackInput"
+      placeholder="请描述遇到的问题或建议..."
+    ></textarea>
+    <input
+      class="contact-input"
+      value="{{feedback.contact}}"
+      data-field="contact"
+      bindinput="handleFeedbackInput"
+      placeholder="联系方式（选填）"
+    />
+    <view class="feedback-footer">
+      <text class="char-count">{{feedback.content.length || 0}} / 2000</text>
+      <button class="feedback-btn" loading="{{submittingFeedback}}" bindtap="submitFeedback">
+        提交反馈
+      </button>
+    </view>
+  </view>
+
+  <view class="health-notice">
+    本服务提供健康数据记录与趋势参考，不替代专业医疗诊断。如出现明显不适或血压严重异常，请及时就医。
+  </view>
+</view>
+

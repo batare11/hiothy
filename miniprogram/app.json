@@ -1,0 +1,38 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/messages/index",
+    "pages/profile/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "血压健康助手",
+    "navigationBarBackgroundColor": "#1677FF",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F8FC",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#86909C",
+    "selectedColor": "#1677FF",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/messages/index",
+        "text": "消息中心"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "个人中心"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}
+

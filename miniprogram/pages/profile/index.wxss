@@ -1,0 +1,134 @@
+.profile-hero {
+  display: flex;
+  align-items: center;
+  margin: 8rpx 0 24rpx;
+  padding: 34rpx 30rpx;
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #1677FF, #4598FF);
+  border-radius: 24rpx;
+}
+
+.avatar-button {
+  width: 112rpx;
+  height: 112rpx;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  border-radius: 50%;
+}
+
+.avatar {
+  display: flex;
+  width: 112rpx;
+  height: 112rpx;
+  align-items: center;
+  justify-content: center;
+  color: #1677FF;
+  background: #FFFFFF;
+  border: 4rpx solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  font-size: 42rpx;
+  font-weight: 600;
+}
+
+.profile-main {
+  min-width: 0;
+  margin-left: 24rpx;
+  flex: 1;
+}
+
+.profile-name {
+  overflow: hidden;
+  font-size: 34rpx;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-id {
+  margin-top: 10rpx;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 21rpx;
+}
+
+.safe-tag {
+  padding: 9rpx 14rpx;
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999rpx;
+  font-size: 19rpx;
+}
+
+.profile-row {
+  display: flex;
+  min-height: 96rpx;
+  align-items: center;
+  border-bottom: 1rpx solid #F2F3F5;
+}
+
+.row-label {
+  color: #4E5969;
+}
+
+.row-input {
+  margin-left: auto;
+  text-align: right;
+}
+
+.row-value {
+  color: #4E5969;
+}
+
+.profile-save {
+  margin-top: 28rpx;
+}
+
+.feedback-input {
+  width: 100%;
+  height: 250rpx;
+  margin-top: 24rpx;
+  padding: 22rpx;
+  background: #F7F8FA;
+  border-radius: 16rpx;
+  line-height: 1.6;
+}
+
+.contact-input {
+  height: 84rpx;
+  margin-top: 18rpx;
+  padding: 0 22rpx;
+  background: #F7F8FA;
+  border-radius: 16rpx;
+}
+
+.feedback-footer {
+  display: flex;
+  align-items: center;
+  margin-top: 22rpx;
+}
+
+.char-count {
+  color: #C9CDD4;
+  font-size: 21rpx;
+}
+
+.feedback-btn {
+  height: 76rpx;
+  margin: 0 0 0 auto;
+  padding: 0 34rpx;
+  color: #FFFFFF;
+  background: #0960D8;
+  border-radius: 14rpx;
+  font-size: 27rpx;
+  line-height: 76rpx;
+}
+
+.health-notice {
+  padding: 8rpx 18rpx 36rpx;
+  color: #86909C;
+  font-size: 21rpx;
+  line-height: 1.7;
+  text-align: center;
+}
+

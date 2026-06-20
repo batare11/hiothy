@@ -1,0 +1,124 @@
+.message-header {
+  margin: 12rpx 4rpx 28rpx;
+}
+
+.message-tabs {
+  display: flex;
+  margin-bottom: 24rpx;
+  padding: 6rpx;
+  background: #E8F3FF;
+  border-radius: 16rpx;
+}
+
+.message-tab {
+  position: relative;
+  flex: 1;
+  padding: 18rpx;
+  color: #4E5969;
+  text-align: center;
+  border-radius: 12rpx;
+}
+
+.message-tab.active {
+  color: #1677FF;
+  background: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 4rpx 14rpx rgba(22, 119, 255, 0.1);
+}
+
+.count-badge {
+  display: inline-flex;
+  min-width: 32rpx;
+  height: 32rpx;
+  margin-left: 8rpx;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  background: #F53F3F;
+  border-radius: 999rpx;
+  font-size: 18rpx;
+}
+
+.message-card {
+  display: flex;
+  margin-bottom: 20rpx;
+  padding: 28rpx;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  box-shadow: 0 6rpx 24rpx rgba(0, 0, 0, 0.04);
+}
+
+.message-card.read {
+  opacity: 0.72;
+}
+
+.message-icon {
+  display: flex;
+  width: 72rpx;
+  height: 72rpx;
+  flex: 0 0 72rpx;
+  align-items: center;
+  justify-content: center;
+  color: #1677FF;
+  background: #E8F3FF;
+  border-radius: 18rpx;
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.message-icon.type-notice {
+  color: #D46B08;
+  background: #FFF7E6;
+}
+
+.message-content {
+  min-width: 0;
+  margin-left: 22rpx;
+  flex: 1;
+}
+
+.message-title-row {
+  display: flex;
+  align-items: center;
+}
+
+.message-title {
+  font-size: 29rpx;
+  font-weight: 600;
+}
+
+.unread-dot {
+  width: 14rpx;
+  height: 14rpx;
+  margin-left: auto;
+  background: #F53F3F;
+  border-radius: 50%;
+}
+
+.message-text {
+  display: -webkit-box;
+  margin-top: 12rpx;
+  overflow: hidden;
+  color: #4E5969;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.message-time {
+  margin-top: 14rpx;
+  color: #C9CDD4;
+  font-size: 21rpx;
+}
+
+.empty-icon {
+  width: 88rpx;
+  height: 88rpx;
+  margin: 0 auto 20rpx;
+  color: #52C41A;
+  background: #F6FFED;
+  border-radius: 50%;
+  font-size: 48rpx;
+  line-height: 88rpx;
+}
+

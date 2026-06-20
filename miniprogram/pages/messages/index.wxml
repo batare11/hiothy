@@ -1,0 +1,46 @@
+<view class="page">
+  <view class="message-header">
+    <view class="section-title">消息中心</view>
+    <view class="section-desc">健康提醒与系统通知</view>
+  </view>
+
+  <view class="message-tabs">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="value"
+      class="message-tab {{activeTab === item.value ? 'active' : ''}}"
+      data-value="{{item.value}}"
+      bindtap="changeTab"
+    >
+      {{item.label}}
+      <text wx:if="{{item.value === 'unread' && unreadCount}}" class="count-badge">{{unreadCount}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">消息加载中...</view>
+  <view wx:elif="{{!messages.length}}" class="card empty-state">
+    <view class="empty-icon">✓</view>
+    <view>{{activeTab === "read" ? "暂无已读消息" : "暂时没有新消息"}}</view>
+  </view>
+
+  <view
+    wx:for="{{messages}}"
+    wx:key="id"
+    class="message-card {{item.is_read ? 'read' : 'unread'}}"
+    data-id="{{item.id}}"
+    bindtap="openMessage"
+  >
+    <view class="message-icon type-{{item.message_type}}">
+      {{item.message_type === "notice" ? "!" : "i"}}
+    </view>
+    <view class="message-content">
+      <view class="message-title-row">
+        <view class="message-title">{{item.title}}</view>
+        <view wx:if="{{!item.is_read}}" class="unread-dot"></view>
+      </view>
+      <view class="message-text">{{item.content}}</view>
+      <view class="message-time">{{item.displayTime}}</view>
+    </view>
+  </view>
+</view>
+

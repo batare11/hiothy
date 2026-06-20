@@ -1,0 +1,169 @@
+<view class="page">
+  <view class="hero">
+    <view>
+      <view class="hero-title">今天感觉怎么样？</view>
+      <view class="hero-desc">规律记录，读懂每一次变化</view>
+    </view>
+    <view class="hero-badge">健康档案</view>
+  </view>
+
+  <view class="card entry-card">
+    <view class="section-title">血压录入</view>
+    <view class="section-desc">拍摄血压计屏幕自动识别，也可手动填写</view>
+
+    <view class="upload-area" bindtap="chooseImage">
+      <image wx:if="{{imagePath}}" class="preview-image" src="{{imagePath}}" mode="aspectFill"></image>
+      <view wx:else class="upload-placeholder">
+        <view class="camera-icon">＋</view>
+        <view class="upload-title">拍照 / 从相册选择</view>
+        <view class="upload-tip">请保持屏幕清晰、无反光</view>
+      </view>
+      <view wx:if="{{ocrLoading}}" class="recognizing-mask">正在识别...</view>
+    </view>
+
+    <view wx:if="{{ocrNotice}}" class="ocr-notice">{{ocrNotice}}</view>
+
+    <view class="form-grid">
+      <view class="form-item">
+        <view class="form-label">高压 <text>mmHg</text></view>
+        <input
+          class="number-input"
+          type="number"
+          maxlength="3"
+          value="{{form.systolic}}"
+          data-field="systolic"
+          bindinput="handleInput"
+          placeholder="120"
+        />
+      </view>
+      <view class="form-item">
+        <view class="form-label">低压 <text>mmHg</text></view>
+        <input
+          class="number-input"
+          type="number"
+          maxlength="3"
+          value="{{form.diastolic}}"
+          data-field="diastolic"
+          bindinput="handleInput"
+          placeholder="80"
+        />
+      </view>
+      <view class="form-item">
+        <view class="form-label">心率 <text>次/分</text></view>
+        <input
+          class="number-input"
+          type="number"
+          maxlength="3"
+          value="{{form.heartRate}}"
+          data-field="heartRate"
+          bindinput="handleInput"
+          placeholder="72"
+        />
+      </view>
+    </view>
+
+    <view class="form-row">
+      <view class="form-label">测量时间</view>
+      <picker mode="date" value="{{form.measuredDate}}" bindchange="handleDateChange">
+        <view class="date-picker">{{form.measuredDate}} ›</view>
+      </picker>
+    </view>
+
+    <view class="form-row note-row">
+      <view class="form-label">备注</view>
+      <input
+        class="note-input"
+        value="{{form.note}}"
+        data-field="note"
+        bindinput="handleInput"
+        placeholder="如：晨起、服药前"
+      />
+    </view>
+
+    <button class="primary-btn submit-btn" loading="{{submitting}}" bindtap="submitRecord">
+      确认并保存
+    </button>
+  </view>
+
+  <view class="card analysis-card">
+    <view class="analysis-header">
+      <view>
+        <view class="section-title">血压分析</view>
+        <view class="section-desc">默认展示过去一年平均趋势</view>
+      </view>
+      <view class="legend">
+        <text class="legend-dot systolic-dot"></text>高压
+        <text class="legend-dot diastolic-dot"></text>低压
+        <text class="legend-dot heart-dot"></text>心率
+      </view>
+    </view>
+
+    <view class="dimension-tabs">
+      <view
+        wx:for="{{dimensions}}"
+        wx:key="value"
+        class="dimension-tab {{dimension === item.value ? 'active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="changeDimension"
+      >{{item.label}}</view>
+    </view>
+
+    <view class="date-range">
+      <picker mode="date" value="{{startDate}}" bindchange="changeStartDate">
+        <view class="range-picker">{{startDate}}</view>
+      </picker>
+      <text class="range-separator">至</text>
+      <picker mode="date" value="{{endDate}}" bindchange="changeEndDate">
+        <view class="range-picker">{{endDate}}</view>
+      </picker>
+      <view class="query-btn" bindtap="loadTrend">查询</view>
+    </view>
+
+    <view class="summary-grid">
+      <view class="summary-item">
+        <view class="summary-value">{{summary.avg_systolic || "--"}}</view>
+        <view class="summary-label">平均高压</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-value">{{summary.avg_diastolic || "--"}}</view>
+        <view class="summary-label">平均低压</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-value">{{summary.avg_heart_rate || "--"}}</view>
+        <view class="summary-label">平均心率</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-value warning-value">{{summary.abnormal_count || 0}}</view>
+        <view class="summary-label">异常次数</view>
+      </view>
+    </view>
+
+    <view class="chart-wrap">
+      <canvas canvas-id="trendChart" class="trend-chart"></canvas>
+      <view wx:if="{{!trendLoading && !trendPoints.length}}" class="chart-empty">
+        暂无趋势数据，先记录一次血压吧
+      </view>
+      <view wx:if="{{trendLoading}}" class="chart-empty">趋势加载中...</view>
+    </view>
+  </view>
+
+  <view class="card recent-card">
+    <view class="recent-header">
+      <view class="section-title">最近记录</view>
+      <view class="record-count">共 {{recordTotal}} 条</view>
+    </view>
+    <view wx:if="{{!records.length}}" class="empty-state">暂无记录</view>
+    <view wx:for="{{records}}" wx:key="id" class="record-row">
+      <view>
+        <view class="record-date">{{item.displayTime}}</view>
+        <view class="record-note">{{item.note || "无备注"}}</view>
+      </view>
+      <view class="record-values">
+        <text class="record-pressure">{{item.systolic}}/{{item.diastolic}}</text>
+        <text class="record-heart">心率 {{item.heart_rate || "--"}}</text>
+      </view>
+      <view class="status-tag status-{{item.status}}">{{item.status_text}}</view>
+    </view>
+  </view>
+</view>
+
