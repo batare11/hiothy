@@ -6,10 +6,10 @@
 // 正式上线域名配置
 // const BASE_URL = "https://hiothy.cn/api/v1";
 // 测试正式ip
-const BASE_URL = "http://127.0.0.1:5000/api/v1";
+const BASE_URL = "http://192.168.1.20:5000/api/v1";
 
 module.exports = {
   BASE_URL,
-  REQUEST_TIMEOUT: 15000
+  REQUEST_TIMEOUT: 30000,
+  UPLOAD_TIMEOUT: 120000
 };
-

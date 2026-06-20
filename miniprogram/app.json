@@ -11,6 +11,12 @@
     "backgroundColor": "#F5F8FC",
     "backgroundTextStyle": "light"
   },
+  "networkTimeout": {
+    "request": 30000,
+    "connectSocket": 30000,
+    "uploadFile": 120000,
+    "downloadFile": 60000
+  },
   "tabBar": {
     "color": "#86909C",
     "selectedColor": "#1677FF",
@@ -35,4 +41,3 @@
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents"
 }
-

@@ -1,5 +1,6 @@
 const { request, uploadImage } = require("../../utils/request");
 const { formatDate, formatDateTime, oneYearAgo } = require("../../utils/date");
+const { normalizeOcrResult } = require("../../utils/ocr");
 
 Page({
   data: {
@@ -65,14 +66,29 @@ Page({
     this.setData({ ocrLoading: true, ocrNotice: "" });
     try {
       const response = await uploadImage(imagePath);
-      const result = response.data || {};
+      const result = normalizeOcrResult(response);
+      const notice = result.complete
+        ? (result.notice || "识别完成，请核对数值后保存。")
+        : result.hasAnyValue
+          ? "仅识别到部分数值，请核对并补充空白项。"
+          : "未识别到有效数值，请重新拍摄或手动填写。";
+
       this.setData({
-        "form.systolic": result.systolic || "",
-        "form.diastolic": result.diastolic || "",
-        "form.heartRate": result.heart_rate || "",
-        ocrNotice: result.notice || "识别完成，请核对数值后保存。"
+        "form.systolic": result.systolic,
+        "form.diastolic": result.diastolic,
+        "form.heartRate": result.heartRate,
+        ocrNotice: notice
       });
-      wx.showToast({ title: "识别完成", icon: "success" });
+      console.info("OCR result", {
+        systolic: result.systolic,
+        diastolic: result.diastolic,
+        heartRate: result.heartRate,
+        rawText: result.rawText
+      });
+      wx.showToast({
+        title: result.complete ? "识别完成" : "请核对识别结果",
+        icon: result.complete ? "success" : "none"
+      });
     } catch (error) {
       this.setData({ ocrNotice: "未能完整识别，请手动填写或重新拍摄。" });
     } finally {
@@ -270,4 +286,3 @@ Page({
     }).exec();
   }
 });
-
