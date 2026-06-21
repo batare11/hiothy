@@ -1,7 +1,12 @@
 {
   "description": "Hiothy 血压健康微信小程序",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "assets"
+      }
+    ],
     "include": []
   },
   "setting": {
@@ -34,7 +39,7 @@
   },
   "compileType": "miniprogram",
   "libVersion": "trial",
-  "appid": "wxd50ef286dbb80bef",
+  "appid": "wx9f472dce697ece9d",
   "projectname": "hiothy-blood-pressure",
   "simulatorType": "wechat",
   "condition": {},

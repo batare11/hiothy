@@ -1,17 +1,58 @@
 <view class="page">
   <view class="hero">
-    <view>
+    <view class="hero-copy">
       <view class="hero-title">今天感觉怎么样？</view>
-      <view class="hero-desc">规律记录，读懂每一次变化</view>
+      <view wx:if="{{records.length}}" class="hero-latest">
+        <text class="hero-latest-label">上次</text>
+        <text class="hero-latest-time">{{records[0].compactTime}}</text>
+        <text class="hero-latest-pressure">{{records[0].systolic}}/{{records[0].diastolic}}</text>
+        <text class="hero-latest-heart">♥ {{records[0].heart_rate || "--"}}</text>
+      </view>
+      <view wx:else class="hero-desc">规律记录，读懂每一次变化</view>
     </view>
     <view class="hero-badge" bindtap="openHealthRecord">
-      健康档案 <text class="hero-arrow">›</text>
+      <view class="hero-record-icon">
+        <view class="hero-record-tab"></view>
+        <view class="hero-record-line"></view>
+        <view class="hero-record-line short"></view>
+      </view>
+      <view class="hero-record-copy">
+        <view class="hero-record-title">健康档案</view>
+        <view class="hero-record-desc">查看记录</view>
+      </view>
+      <text class="hero-arrow">›</text>
     </view>
   </view>
 
   <view class="card entry-card">
-    <view class="section-title">血压录入</view>
-    <view class="section-desc">拍摄血压计屏幕自动识别，也可手动填写</view>
+    <view class="entry-heading">
+      <view class="section-title">血压录入</view>
+      <view class="section-desc">拍照识别，也可手动填写</view>
+    </view>
+
+    <view class="ocr-engine-section">
+      <view class="ocr-engine-title">识别方式</view>
+      <view class="ocr-engine-options">
+        <view
+          wx:for="{{ocrEngines}}"
+          wx:key="value"
+          class="ocr-engine-option {{ocrEngine === item.value ? 'active' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="selectOcrEngine"
+        >
+          <view class="ocr-engine-choice">
+            <view class="ocr-engine-radio">
+              <view wx:if="{{ocrEngine === item.value}}" class="ocr-engine-radio-dot"></view>
+            </view>
+            <view class="ocr-engine-text">
+              <view class="ocr-engine-label">{{item.label}}</view>
+              <view class="ocr-engine-desc">{{item.description}}</view>
+            </view>
+          </view>
+          <view wx:if="{{ocrEngine === item.value}}" class="ocr-engine-selected">已选择</view>
+        </view>
+      </view>
+    </view>
 
     <view class="upload-area" bindtap="chooseImage">
       <image wx:if="{{imagePath}}" class="preview-image" src="{{imagePath}}" mode="aspectFill"></image>
@@ -78,179 +119,12 @@
         value="{{form.note}}"
         data-field="note"
         bindinput="handleInput"
-        placeholder="如：晨起、服药前"
+        placeholder="如：昨晚熬夜、服药后、头晕等"
       />
     </view>
 
     <button class="primary-btn submit-btn" loading="{{submitting}}" bindtap="submitRecord">
       确认并保存
     </button>
-  </view>
-
-  <view class="card analysis-card">
-    <view class="analysis-header">
-      <view>
-        <view class="section-title">血压分析</view>
-        <view class="section-desc">默认展示过去一年平均趋势</view>
-      </view>
-      <view class="legend">
-        <text class="legend-dot systolic-dot"></text>高压
-        <text class="legend-dot diastolic-dot"></text>低压
-        <text class="legend-dot heart-dot"></text>心率
-      </view>
-    </view>
-
-    <view class="dimension-tabs">
-      <view
-        wx:for="{{dimensions}}"
-        wx:key="value"
-        class="dimension-tab {{dimension === item.value ? 'active' : ''}}"
-        data-value="{{item.value}}"
-        bindtap="changeDimension"
-      >{{item.label}}</view>
-    </view>
-
-    <view class="date-range">
-      <picker mode="date" value="{{startDate}}" bindchange="changeStartDate">
-        <view class="range-picker">{{startDate}}</view>
-      </picker>
-      <text class="range-separator">至</text>
-      <picker mode="date" value="{{endDate}}" bindchange="changeEndDate">
-        <view class="range-picker">{{endDate}}</view>
-      </picker>
-      <view class="query-btn" bindtap="loadTrend">查询</view>
-    </view>
-
-    <view class="summary-grid">
-      <view class="summary-item">
-        <view class="summary-value">{{summary.avg_systolic || "--"}}</view>
-        <view class="summary-label">平均高压</view>
-      </view>
-      <view class="summary-item">
-        <view class="summary-value">{{summary.avg_diastolic || "--"}}</view>
-        <view class="summary-label">平均低压</view>
-      </view>
-      <view class="summary-item">
-        <view class="summary-value">{{summary.avg_heart_rate || "--"}}</view>
-        <view class="summary-label">平均心率</view>
-      </view>
-      <view class="summary-item">
-        <view class="summary-value warning-value">{{summary.abnormal_count || 0}}</view>
-        <view class="summary-label">异常次数</view>
-      </view>
-    </view>
-
-    <view class="chart-wrap">
-      <canvas canvas-id="trendChart" class="trend-chart"></canvas>
-      <view wx:if="{{!trendLoading && !trendPoints.length}}" class="chart-empty">
-        暂无趋势数据，先记录一次血压吧
-      </view>
-      <view wx:if="{{trendLoading}}" class="chart-empty">趋势加载中...</view>
-    </view>
-  </view>
-
-  <view class="card recent-card">
-    <view class="recent-header">
-      <view class="section-title">最近三次记录</view>
-      <view class="recent-actions">
-        <view class="record-count">共 {{recordTotal}} 条</view>
-        <view class="more-records-btn" bindtap="openRecordsModal">更多 ›</view>
-      </view>
-    </view>
-    <view wx:if="{{!records.length}}" class="empty-state">暂无记录</view>
-    <view wx:for="{{records}}" wx:key="id" class="record-row">
-      <view>
-        <view class="record-date">{{item.displayTime}}</view>
-        <view class="record-note">{{item.note || "无备注"}}</view>
-      </view>
-      <view class="record-values">
-        <text class="record-pressure">{{item.systolic}}/{{item.diastolic}}</text>
-        <text class="record-heart">心率 {{item.heart_rate || "--"}}</text>
-      </view>
-      <view class="status-tag status-{{item.status}}">{{item.status_text}}</view>
-    </view>
-  </view>
-
-  <view wx:if="{{recordsModalVisible}}" class="modal-mask" catchtap="closeRecordsModal">
-    <view class="records-modal" catchtap="noop">
-      <view class="modal-header">
-        <view>
-          <view class="modal-title">全部血压记录</view>
-          <view class="modal-subtitle">按测量时间倒序排列</view>
-        </view>
-        <view class="modal-close" bindtap="closeRecordsModal">×</view>
-      </view>
-
-      <view class="record-filter">
-        <view class="filter-label">开始时间</view>
-        <input class="datetime-input" value="{{recordFilters.startTime}}" data-field="startTime" bindinput="handleFilterInput" placeholder="YYYY-MM-DD HH:mm:ss" />
-        <view class="filter-label filter-end-label">结束时间</view>
-        <input class="datetime-input" value="{{recordFilters.endTime}}" data-field="endTime" bindinput="handleFilterInput" placeholder="YYYY-MM-DD HH:mm:ss" />
-        <view class="filter-actions">
-          <button class="filter-reset-btn" bindtap="resetRecordFilters">重置</button>
-          <button class="filter-query-btn" bindtap="queryAllRecords">查询</button>
-        </view>
-      </view>
-
-      <scroll-view class="records-scroll" scroll-y>
-        <view wx:if="{{allRecordsLoading}}" class="loading">记录加载中...</view>
-        <view wx:elif="{{!allRecords.length}}" class="modal-empty">没有符合条件的记录</view>
-        <view wx:for="{{allRecords}}" wx:key="id" class="all-record-item">
-          <view class="all-record-top">
-            <view class="all-record-time">{{item.displayTime}}</view>
-            <view class="status-tag status-{{item.status}}">{{item.status_text}}</view>
-          </view>
-          <view class="all-record-body">
-            <view class="all-record-reading">
-              <text class="all-record-pressure">{{item.systolic}}/{{item.diastolic}}</text>
-              <text class="all-record-unit">mmHg</text>
-              <text class="all-record-heart">心率 {{item.heart_rate || "--"}} 次/分</text>
-            </view>
-            <view class="all-record-note">{{item.note || "无备注"}}</view>
-          </view>
-          <view class="record-operation-row">
-            <button class="record-edit-btn" data-id="{{item.id}}" bindtap="openEditRecord">编辑</button>
-            <button class="record-delete-btn" data-id="{{item.id}}" bindtap="deleteRecord">删除</button>
-          </view>
-        </view>
-      </scroll-view>
-
-      <view class="pagination">
-        <button class="page-btn" disabled="{{recordsPage <= 1}}" bindtap="previousRecordsPage">上一页</button>
-        <view class="page-info">第 {{recordsPage}} / {{recordsTotalPages}} 页 · 共 {{recordsTotal}} 条</view>
-        <button class="page-btn" disabled="{{recordsPage >= recordsTotalPages}}" bindtap="nextRecordsPage">下一页</button>
-      </view>
-
-      <view wx:if="{{editVisible}}" class="edit-panel">
-        <view class="edit-card">
-          <view class="modal-header">
-            <view class="modal-title">编辑血压记录</view>
-            <view class="modal-close" bindtap="closeEditRecord">×</view>
-          </view>
-          <view class="edit-grid">
-            <view class="edit-field">
-              <view class="edit-label">高压</view>
-              <input class="edit-input" type="number" value="{{editForm.systolic}}" data-field="systolic" bindinput="handleEditInput" />
-            </view>
-            <view class="edit-field">
-              <view class="edit-label">低压</view>
-              <input class="edit-input" type="number" value="{{editForm.diastolic}}" data-field="diastolic" bindinput="handleEditInput" />
-            </view>
-            <view class="edit-field">
-              <view class="edit-label">心率</view>
-              <input class="edit-input" type="number" value="{{editForm.heartRate}}" data-field="heartRate" bindinput="handleEditInput" />
-            </view>
-          </view>
-          <view class="edit-label edit-time-label">测量时间（不可修改）</view>
-          <view class="readonly-time">{{editForm.measuredAt}}</view>
-          <view class="edit-label edit-time-label">备注</view>
-          <input class="edit-input full-edit-input" value="{{editForm.note}}" data-field="note" bindinput="handleEditInput" placeholder="请输入备注" />
-          <view class="edit-actions">
-            <button class="edit-cancel-btn" bindtap="closeEditRecord">取消</button>
-            <button class="edit-save-btn" loading="{{editSaving}}" bindtap="saveEditedRecord">保存修改</button>
-          </view>
-        </view>
-      </view>
-    </view>
   </view>
 </view>

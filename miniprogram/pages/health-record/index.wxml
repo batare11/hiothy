@@ -1,13 +1,10 @@
 <view class="page">
   <view class="archive-hero">
-    <view class="archive-title">我的健康档案</view>
+    <view class="archive-title">就诊资料</view>
     <view class="archive-desc">
-      从 {{overview.firstRecordText || "首次记录"}} 开始，持续了解血压变化
+      生成结构化健康摘要，可复制后发送给医生或家人
     </view>
-    <view class="archive-status">
-      <text class="status-light"></text>
-      数据已同步
-    </view>
+    <button class="hero-export-btn" bindtap="copyMedicalSummary">复制就诊摘要</button>
   </view>
 
   <view wx:if="{{loading}}" class="loading">健康档案加载中...</view>
@@ -70,30 +67,135 @@
       </view>
     </view>
 
-    <view class="card">
-      <view class="card-heading">
-        <view>
-          <view class="section-title">近 12 个月概览</view>
-          <view class="section-desc">每月平均血压及记录次数</view>
-        </view>
-      </view>
-      <view wx:if="{{!overview.monthly.length}}" class="empty-state">暂无月度数据</view>
-      <scroll-view wx:else class="month-scroll" scroll-x>
-        <view class="month-list">
-          <view wx:for="{{overview.monthly}}" wx:key="month" class="month-item">
-            <view class="month-name">{{item.month}}</view>
-            <view class="month-pressure">{{item.systolic}}/{{item.diastolic}}</view>
-            <view class="month-heart">心率 {{item.heart_rate || "--"}}</view>
-            <view class="month-count">{{item.count}} 次</view>
+    <view class="card archive-form-card">
+      <view class="section-title">其他档案资料</view>
+      <view class="section-desc">补充身体与生活习惯，方便形成更完整的就诊摘要</view>
+
+      <view class="archive-form-grid compact-measures">
+        <view class="archive-field">
+          <view class="archive-label">年龄</view>
+          <view class="number-input-wrap">
+            <input
+              class="archive-input"
+              type="number"
+              maxlength="3"
+              value="{{archive.age}}"
+              data-field="age"
+              bindinput="handleArchiveInput"
+              placeholder="请输入"
+            />
+            <text class="input-unit">岁</text>
           </view>
         </view>
-      </scroll-view>
-    </view>
+        <view class="archive-field">
+          <view class="archive-label">身高</view>
+          <view class="number-input-wrap">
+            <input
+              class="archive-input"
+              type="digit"
+              value="{{archive.height_cm}}"
+              data-field="height_cm"
+              bindinput="handleArchiveInput"
+              placeholder="请输入"
+            />
+            <text class="input-unit">cm</text>
+          </view>
+        </view>
+        <view class="archive-field">
+          <view class="archive-label">体重</view>
+          <view class="number-input-wrap">
+            <input
+              class="archive-input"
+              type="digit"
+              value="{{archive.weight_jin}}"
+              data-field="weight_jin"
+              bindinput="handleArchiveInput"
+              placeholder="请输入"
+            />
+            <text class="input-unit">斤</text>
+          </view>
+        </view>
+      </view>
 
-    <view class="card export-card">
-      <view class="section-title">就诊资料</view>
-      <view class="section-desc">生成结构化摘要，可复制后发送给医生或家人</view>
-      <button class="export-btn" bindtap="copyMedicalSummary">复制就诊摘要</button>
+      <view class="binary-row">
+        <view class="binary-group">
+          <view class="archive-label">性别</view>
+          <view class="binary-options">
+            <view
+              class="binary-option {{archive.gender == 1 ? 'selected' : ''}}"
+              data-value="1"
+              catchtap="selectGender"
+            >男</view>
+            <view
+              class="binary-option {{archive.gender == 0 ? 'selected' : ''}}"
+              data-value="0"
+              catchtap="selectGender"
+            >女</view>
+          </view>
+        </view>
+        <view class="binary-group">
+          <view class="archive-label">婚姻状态</view>
+          <view class="binary-options">
+            <view
+              class="binary-option {{archive.marital_status == 1 ? 'selected' : ''}}"
+              data-value="1"
+              catchtap="selectMaritalStatus"
+            >已婚</view>
+            <view
+              class="binary-option {{archive.marital_status == 0 ? 'selected' : ''}}"
+              data-value="0"
+              catchtap="selectMaritalStatus"
+            >未婚</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="habit-title">生活习惯</view>
+      <view class="habit-grid">
+        <view class="habit-item">
+          <text>抽烟</text>
+          <switch
+            checked="{{archive.smoking}}"
+            color="#1677FF"
+            data-field="smoking"
+            bindchange="changeHabit"
+          />
+        </view>
+        <view class="habit-item">
+          <text>喝酒</text>
+          <switch
+            checked="{{archive.drinking}}"
+            color="#1677FF"
+            data-field="drinking"
+            bindchange="changeHabit"
+          />
+        </view>
+        <view class="habit-item wide">
+          <text>经常熬夜</text>
+          <switch
+            checked="{{archive.staying_up_late}}"
+            color="#1677FF"
+            data-field="staying_up_late"
+            bindchange="changeHabit"
+          />
+        </view>
+      </view>
+
+      <view class="archive-label note-label">备注</view>
+      <textarea
+        class="archive-note"
+        maxlength="1000"
+        value="{{archive.note}}"
+        data-field="note"
+        bindinput="handleArchiveInput"
+        placeholder="如慢性病、过敏史、长期服药、近期症状等"
+      ></textarea>
+      <view class="note-count">{{archive.note.length || 0}} / 1000</view>
+      <button
+        class="save-archive-btn"
+        loading="{{savingArchive}}"
+        bindtap="saveArchive"
+      >保存辅助档案</button>
     </view>
 
     <view class="archive-notice">

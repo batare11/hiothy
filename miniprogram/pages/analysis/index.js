@@ -1,53 +1,116 @@
-const { request, uploadImage } = require("../../utils/request");
+const { request } = require("../../utils/request");
 const {
   formatDate,
-  formatDateTimeSeconds,
-  oneYearAgo
+  formatDateTimeSeconds
 } = require("../../utils/date");
-const { normalizeOcrResult } = require("../../utils/ocr");
+
+function getDefaultTrendRange(dimension) {
+  const end = new Date();
+  const start = new Date(end);
+  const captions = {
+    day: "默认展示最近 7 天趋势",
+    month: "默认展示最近半年趋势",
+    year: "默认展示最近 3 年趋势"
+  };
+
+  if (dimension === "day") {
+    start.setDate(start.getDate() - 6);
+  } else if (dimension === "year") {
+    start.setFullYear(start.getFullYear() - 2, 0, 1);
+  } else {
+    start.setDate(1);
+    start.setMonth(start.getMonth() - 5);
+  }
+
+  return {
+    startDate: formatDate(start),
+    endDate: formatDate(end),
+    trendCaption: captions[dimension]
+  };
+}
+
+function parseLocalDate(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function pad(value) {
+  return String(value).padStart(2, "0");
+}
+
+function buildTrendTimeline(dimension, startDate, endDate, sourcePoints) {
+  const sourceMap = {};
+  sourcePoints.forEach((point) => {
+    sourceMap[point.label] = point;
+  });
+
+  const cursor = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  const crossesYear = cursor.getFullYear() !== end.getFullYear();
+  if (dimension === "month") cursor.setDate(1);
+  if (dimension === "year") cursor.setMonth(0, 1);
+
+  const points = [];
+  while (cursor <= end && points.length < 5000) {
+    let label = "";
+    let axisLabel = "";
+    if (dimension === "day") {
+      label = formatDate(cursor);
+      axisLabel = crossesYear
+        ? label
+        : `${pad(cursor.getMonth() + 1)}-${pad(cursor.getDate())}`;
+      cursor.setDate(cursor.getDate() + 1);
+    } else if (dimension === "year") {
+      label = String(cursor.getFullYear());
+      axisLabel = label;
+      cursor.setFullYear(cursor.getFullYear() + 1);
+    } else {
+      label = `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}`;
+      axisLabel = crossesYear
+        ? label
+        : `${pad(cursor.getMonth() + 1)}月`;
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    points.push({
+      label,
+      axisLabel,
+      systolic: null,
+      diastolic: null,
+      heart_rate: null,
+      count: 0,
+      ...(sourceMap[label] || {})
+    });
+  }
+  return points;
+}
+
+const initialTrendRange = getDefaultTrendRange("day");
 
 Page({
   data: {
-    imagePath: "",
-    ocrLoading: false,
-    ocrNotice: "",
-    ocrEngine: "rapid",
-    ocrEngines: [
-      {
-        value: "rapid",
-        label: "快速识别",
-        description: "本地处理，速度快"
-      },
-      {
-        value: "glm",
-        label: "增强识别",
-        description: "云端 AI，复杂图片效果更好"
-      },
-      {
-        value: "auto",
-        label: "智能识别",
-        description: "快速优先，必要时自动增强"
-      }
-    ],
-    submitting: false,
     trendLoading: false,
-    form: {
-      systolic: "",
-      diastolic: "",
-      heartRate: "",
-      measuredDate: formatDate(new Date()),
-      note: ""
-    },
     dimensions: [
       { label: "按日", value: "day" },
       { label: "按月", value: "month" },
       { label: "按年", value: "year" }
     ],
-    dimension: "month",
-    startDate: oneYearAgo(),
-    endDate: formatDate(new Date()),
+    dimension: "day",
+    startDate: initialTrendRange.startDate,
+    endDate: initialTrendRange.endDate,
+    trendCaption: initialTrendRange.trendCaption,
     trendPoints: [],
-    summary: {},
+    hasTrendData: false,
+    summary: {
+      latest_grade: null,
+      grade_distribution: []
+    },
+    gradeStandards: [
+      { category: "normal", label: "正常血压", range: "高压 <120 且低压 <80" },
+      { category: "high_normal", label: "正常高值", range: "高压 120～139 和/或低压 80～89" },
+      { category: "grade_1", label: "高血压1级", range: "高压 140～159 和/或低压 90～99" },
+      { category: "grade_2", label: "高血压2级", range: "高压 160～179 和/或低压 100～109" },
+      { category: "grade_3", label: "高血压3级", range: "高压 ≥180 和/或低压 ≥110" }
+    ],
     records: [],
     recordTotal: 0,
     recordsModalVisible: false,
@@ -81,10 +144,10 @@ Page({
   onShow() {
     const tabBar = this.getTabBar && this.getTabBar();
     if (tabBar) {
-      tabBar.setData({ selected: 0 });
+      tabBar.setData({ selected: 1 });
       if (tabBar.refreshUnreadCount) tabBar.refreshUnreadCount();
     }
-    if (this.data.hasLoaded) this.loadRecords();
+    if (this.data.hasLoaded) this.refreshPage();
   },
 
   onPullDownRefresh() {
@@ -92,156 +155,17 @@ Page({
   },
 
   async refreshPage() {
-    await this.loadRecords();
+    await Promise.all([this.loadTrend(), this.loadRecords()]);
     this.setData({ hasLoaded: true });
-  },
-
-  openHealthRecord() {
-    wx.navigateTo({ url: "/pages/health-record/index" });
-  },
-
-  selectOcrEngine(event) {
-    const engine = event.currentTarget.dataset.value;
-    if (engine === this.data.ocrEngine) return;
-    if (
-      engine !== "rapid" &&
-      !wx.getStorageSync("cloudOcrConsent")
-    ) {
-      wx.showModal({
-        title: "启用云端识别",
-        content: "增强识别会将本次血压计图片发送给云端 AI 服务处理，仅用于提取高压、低压和心率。是否同意？",
-        confirmText: "同意使用",
-        success: ({ confirm }) => {
-          if (!confirm) return;
-          wx.setStorageSync("cloudOcrConsent", true);
-          this.setData({ ocrEngine: engine });
-        }
-      });
-      return;
-    }
-    this.setData({ ocrEngine: engine });
-  },
-
-  chooseImage() {
-    if (this.data.ocrLoading) return;
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ["image"],
-      sourceType: ["camera", "album"],
-      sizeType: ["compressed"],
-      success: ({ tempFiles }) => {
-        const imagePath = tempFiles[0].tempFilePath;
-        this.setData({ imagePath });
-        this.recognizeImage(imagePath);
-      }
-    });
-  },
-
-  async recognizeImage(imagePath) {
-    this.setData({ ocrLoading: true, ocrNotice: "" });
-    try {
-      const response = await uploadImage(imagePath, this.data.ocrEngine);
-      const result = normalizeOcrResult(response);
-      const notice = result.complete
-        ? (result.notice || "识别完成，请核对数值后保存。")
-        : result.hasAnyValue
-          ? "仅识别到部分数值，请核对并补充空白项。"
-          : "未识别到有效数值，请重新拍摄或手动填写。";
-
-      this.setData({
-        "form.systolic": result.systolic,
-        "form.diastolic": result.diastolic,
-        "form.heartRate": result.heartRate,
-        ocrNotice: notice
-      });
-      console.info("OCR result", {
-        systolic: result.systolic,
-        diastolic: result.diastolic,
-        heartRate: result.heartRate,
-        rawText: result.rawText,
-        engine: result.engine,
-        provider: result.provider,
-        fallbackUsed: result.fallbackUsed
-      });
-      wx.showToast({
-        title: result.complete ? "识别完成" : "请核对识别结果",
-        icon: result.complete ? "success" : "none"
-      });
-    } catch (error) {
-      const message = error && error.message
-        ? error.message
-        : "未能完整识别，请手动填写或重新拍摄。";
-      this.setData({ ocrNotice: message });
-      console.error("OCR failed", error);
-    } finally {
-      this.setData({ ocrLoading: false });
-    }
-  },
-
-  handleInput(event) {
-    const field = event.currentTarget.dataset.field;
-    this.setData({ [`form.${field}`]: event.detail.value });
-  },
-
-  handleDateChange(event) {
-    this.setData({ "form.measuredDate": event.detail.value });
-  },
-
-  validateForm() {
-    const { systolic, diastolic, heartRate } = this.data.form;
-    const high = Number(systolic);
-    const low = Number(diastolic);
-    const heart = heartRate ? Number(heartRate) : null;
-    if (!high || high < 50 || high > 260) return "请输入 50～260 的高压";
-    if (!low || low < 30 || low > 180) return "请输入 30～180 的低压";
-    if (high <= low) return "高压应大于低压";
-    if (heart && (heart < 30 || heart > 220)) return "请输入 30～220 的心率";
-    return "";
-  },
-
-  async submitRecord() {
-    const message = this.validateForm();
-    if (message) {
-      wx.showToast({ title: message, icon: "none" });
-      return;
-    }
-    if (this.data.submitting) return;
-    this.setData({ submitting: true });
-    const form = this.data.form;
-    try {
-      const response = await request({
-        url: "/blood-pressure",
-        method: "POST",
-        data: {
-          systolic: Number(form.systolic),
-          diastolic: Number(form.diastolic),
-          heart_rate: form.heartRate ? Number(form.heartRate) : null,
-          measured_at: `${form.measuredDate}T${new Date().toTimeString().slice(0, 8)}`,
-          note: form.note || null
-        }
-      });
-      wx.showToast({ title: response.message || "保存成功", icon: "success" });
-      this.setData({
-        imagePath: "",
-        ocrNotice: "",
-        "form.systolic": "",
-        "form.diastolic": "",
-        "form.heartRate": "",
-        "form.note": ""
-      });
-      await this.loadRecords();
-      const tabBar = this.getTabBar && this.getTabBar();
-      if (tabBar && tabBar.refreshUnreadCount) {
-        await tabBar.refreshUnreadCount();
-      }
-    } finally {
-      this.setData({ submitting: false });
-    }
   },
 
   changeDimension(event) {
     const dimension = event.currentTarget.dataset.value;
-    this.setData({ dimension }, () => this.loadTrend());
+    if (dimension === this.data.dimension) return;
+    this.setData({
+      dimension,
+      ...getDefaultTrendRange(dimension)
+    }, () => this.loadTrend());
   },
 
   changeStartDate(event) {
@@ -269,12 +193,32 @@ Page({
         silent: true
       });
       const data = response.data || {};
+      const summary = data.summary || {};
+      const trendPoints = buildTrendTimeline(
+        this.data.dimension,
+        this.data.startDate,
+        this.data.endDate,
+        data.points || []
+      );
       this.setData({
-        trendPoints: data.points || [],
-        summary: data.summary || {}
+        trendPoints,
+        hasTrendData: trendPoints.some((item) => item.count > 0),
+        summary: {
+          ...summary,
+          grade_distribution: (summary.grade_distribution || []).map(
+            (item) => ({
+              ...item,
+              barWidth: item.count ? Math.max(item.percent, 4) : 0
+            })
+          )
+        }
       }, () => this.drawChart());
     } catch (error) {
-      this.setData({ trendPoints: [], summary: {} });
+      this.setData({
+        trendPoints: [],
+        hasTrendData: false,
+        summary: { latest_grade: null, grade_distribution: [] }
+      });
     } finally {
       this.setData({ trendLoading: false });
     }
@@ -290,8 +234,7 @@ Page({
       const data = response.data || {};
       const records = (data.items || []).map((item) => ({
         ...item,
-        displayTime: formatDateTimeSeconds(item.created_at),
-        compactTime: formatDateTimeSeconds(item.created_at).slice(5, 16)
+        displayTime: formatDateTimeSeconds(item.created_at)
       }));
       this.setData({ records, recordTotal: data.total || 0 });
     } catch (error) {
@@ -331,13 +274,7 @@ Page({
     if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
       throw new Error("请选择有效日期");
     }
-    const time = boundary === "end" ? "23:59:59" : "00:00:00";
-    const dateTime = `${text}T${time}`;
-    const date = new Date(dateTime);
-    if (Number.isNaN(date.getTime())) {
-      throw new Error("请选择有效日期");
-    }
-    return dateTime;
+    return `${text}T${boundary === "end" ? "23:59:59" : "00:00:00"}`;
   },
 
   queryAllRecords() {
@@ -384,12 +321,11 @@ Page({
         }
       });
       const data = response.data || {};
-      const allRecords = (data.items || []).map((item) => ({
-        ...item,
-        displayTime: formatDateTimeSeconds(item.created_at)
-      }));
       this.setData({
-        allRecords,
+        allRecords: (data.items || []).map((item) => ({
+          ...item,
+          displayTime: formatDateTimeSeconds(item.created_at)
+        })),
         recordsTotal: data.total || 0,
         recordsTotalPages: data.total_pages || 1
       });
@@ -433,9 +369,7 @@ Page({
   },
 
   closeEditRecord() {
-    if (!this.data.editSaving) {
-      this.setData({ editVisible: false });
-    }
+    if (!this.data.editSaving) this.setData({ editVisible: false });
   },
 
   handleEditInput(event) {
@@ -496,29 +430,26 @@ Page({
       content: `确定删除 ${record.displayTime} 的血压记录吗？删除后无法恢复。`,
       confirmText: "删除",
       confirmColor: "#F53F3F",
-      success: async (result) => {
-        if (!result.confirm) return;
-        try {
-          await request({
-            url: `/blood-pressure/${id}`,
-            method: "DELETE"
-          });
-          wx.showToast({ title: "已删除", icon: "success" });
-          const nextTotal = Math.max(0, this.data.recordsTotal - 1);
-          const nextTotalPages = Math.max(
-            1,
-            Math.ceil(nextTotal / this.data.recordsPageSize)
-          );
-          const nextPage = Math.min(this.data.recordsPage, nextTotalPages);
-          this.setData({ recordsPage: nextPage });
-          await Promise.all([
-            this.loadAllRecords(),
-            this.loadRecords(),
-            this.loadTrend()
-          ]);
-        } catch (error) {
-          // request 已统一展示错误。
-        }
+      success: async ({ confirm }) => {
+        if (!confirm) return;
+        await request({
+          url: `/blood-pressure/${id}`,
+          method: "DELETE"
+        });
+        wx.showToast({ title: "已删除", icon: "success" });
+        const nextTotal = Math.max(0, this.data.recordsTotal - 1);
+        const nextTotalPages = Math.max(
+          1,
+          Math.ceil(nextTotal / this.data.recordsPageSize)
+        );
+        this.setData({
+          recordsPage: Math.min(this.data.recordsPage, nextTotalPages)
+        });
+        await Promise.all([
+          this.loadAllRecords(),
+          this.loadRecords(),
+          this.loadTrend()
+        ]);
       }
     });
   },
@@ -536,10 +467,18 @@ Page({
       const chartWidth = width - padding.left - padding.right;
       const chartHeight = height - padding.top - padding.bottom;
       const allValues = points.reduce((values, point) => {
-        return values.concat([point.systolic, point.diastolic, point.heart_rate].filter(Boolean));
+        return values.concat(
+          [point.systolic, point.diastolic, point.heart_rate].filter(
+            (value) => value !== null && value !== undefined
+          )
+        );
       }, []);
-      const minValue = Math.max(0, Math.floor(Math.min(...allValues) / 20) * 20 - 20);
-      const maxValue = Math.ceil(Math.max(...allValues) / 20) * 20 + 20;
+      const minValue = allValues.length
+        ? Math.max(0, Math.floor(Math.min(...allValues) / 20) * 20 - 20)
+        : 40;
+      const maxValue = allValues.length
+        ? Math.ceil(Math.max(...allValues) / 20) * 20 + 20
+        : 180;
       const range = Math.max(maxValue - minValue, 1);
 
       ctx.setStrokeStyle("#E5E6EB");
@@ -557,42 +496,77 @@ Page({
       }
 
       const step = points.length > 1 ? chartWidth / (points.length - 1) : 0;
-      const series = [
+      [
         { field: "systolic", color: "#1677FF" },
         { field: "diastolic", color: "#52C41A" },
         { field: "heart_rate", color: "#FA8C16" }
-      ];
-      series.forEach(({ field, color }) => {
+      ].forEach(({ field, color }) => {
         ctx.setStrokeStyle(color);
         ctx.setFillStyle(color);
         ctx.setLineWidth(2);
-        ctx.beginPath();
+        let drawing = false;
         points.forEach((point, index) => {
-          if (point[field] === null || point[field] === undefined) return;
-          const x = padding.left + (points.length === 1 ? chartWidth / 2 : step * index);
-          const y = padding.top + ((maxValue - point[field]) / range) * chartHeight;
-          if (index === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
+          if (point[field] === null || point[field] === undefined) {
+            drawing = false;
+            return;
+          }
+          const x = padding.left + (
+            points.length === 1 ? chartWidth / 2 : step * index
+          );
+          const y = padding.top + (
+            (maxValue - point[field]) / range
+          ) * chartHeight;
+          if (!drawing) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            drawing = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+          const nextPoint = points[index + 1];
+          if (
+            !nextPoint ||
+            nextPoint[field] === null ||
+            nextPoint[field] === undefined
+          ) {
+            ctx.stroke();
+            drawing = false;
+          }
         });
-        ctx.stroke();
         points.forEach((point, index) => {
           if (point[field] === null || point[field] === undefined) return;
-          const x = padding.left + (points.length === 1 ? chartWidth / 2 : step * index);
-          const y = padding.top + ((maxValue - point[field]) / range) * chartHeight;
+          const x = padding.left + (
+            points.length === 1 ? chartWidth / 2 : step * index
+          );
+          const y = padding.top + (
+            (maxValue - point[field]) / range
+          ) * chartHeight;
           ctx.beginPath();
           ctx.arc(x, y, 2.5, 0, Math.PI * 2);
           ctx.fill();
         });
       });
 
-      const labelIndexes = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])];
+      const maxLabels = points.length <= 7 ? points.length : 6;
+      const labelIndexes = [...new Set(
+        Array.from({ length: maxLabels }, (_, index) => (
+          Math.round(index * (points.length - 1) / Math.max(maxLabels - 1, 1))
+        ))
+      )];
       ctx.setFillStyle("#86909C");
       ctx.setFontSize(9);
+      ctx.setTextAlign("center");
       labelIndexes.forEach((index) => {
-        const x = padding.left + (points.length === 1 ? chartWidth / 2 : step * index);
-        const label = points[index].label;
-        ctx.fillText(label, Math.max(2, x - 18), height - 10);
+        const x = padding.left + (
+          points.length === 1 ? chartWidth / 2 : step * index
+        );
+        ctx.fillText(
+          points[index].axisLabel || points[index].label,
+          x,
+          height - 10
+        );
       });
+      ctx.setTextAlign("left");
       ctx.draw();
     }).exec();
   }

@@ -1,18 +1,32 @@
 """图片 OCR 接口。"""
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_mini_user_id
 from app.core.config import settings
-from app.services.ocr import recognize_blood_pressure
+from app.services.ocr_providers import recognize_with_provider
+from app.services.ocr_providers.temp_files import resolve_temp_image
 
 router = APIRouter(prefix="/ocr", tags=["ocr"])
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
 
 
+@router.get("/temp/{filename}", include_in_schema=False)
+def get_temporary_ocr_image(filename: str) -> FileResponse:
+    path = resolve_temp_image(filename)
+    if path is None:
+        raise HTTPException(status_code=404, detail="临时图片不存在或已过期")
+    return FileResponse(
+        path,
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
+
+
 @router.post("/blood-pressure")
 async def ocr_blood_pressure(
     file: UploadFile = File(...),
+    engine: str = Query(default="rapid", pattern="^(rapid|glm|auto)$"),
     _: str = Depends(get_mini_user_id),
 ) -> dict:
     if file.content_type not in ALLOWED_TYPES:
@@ -21,7 +35,13 @@ async def ocr_blood_pressure(
     if len(content) > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail="图片大小超出限制")
     try:
-        data = recognize_blood_pressure(content)
+        data = await recognize_with_provider(
+            content,
+            file.content_type or "image/jpeg",
+            engine,
+        )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=422,

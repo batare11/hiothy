@@ -38,6 +38,8 @@ class BloodPressureOut(BaseModel):
     note: str | None
     status: str
     status_text: str
+    pressure_category: str
+    hypertension_grade: int
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,6 +58,8 @@ class TrendSummary(BaseModel):
     avg_diastolic: float | None
     avg_heart_rate: float | None
     abnormal_count: int
+    latest_grade: dict | None = None
+    grade_distribution: list[dict] = Field(default_factory=list)
 
 
 class TrendResult(BaseModel):
@@ -64,4 +68,3 @@ class TrendResult(BaseModel):
     end_date: datetime
     points: list[TrendPoint]
     summary: TrendSummary
-

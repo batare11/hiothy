@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/home/index",
+    "pages/analysis/index",
     "pages/health-record/index",
     "pages/messages/index",
     "pages/profile/index"
@@ -19,6 +20,7 @@
     "downloadFile": 60000
   },
   "tabBar": {
+    "custom": true,
     "color": "#86909C",
     "selectedColor": "#1677FF",
     "backgroundColor": "#FFFFFF",
@@ -27,6 +29,10 @@
       {
         "pagePath": "pages/home/index",
         "text": "首页"
+      },
+      {
+        "pagePath": "pages/analysis/index",
+        "text": "分析"
       },
       {
         "pagePath": "pages/messages/index",

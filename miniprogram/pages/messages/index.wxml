@@ -8,8 +8,9 @@
     <view
       wx:for="{{tabs}}"
       wx:key="value"
-      class="message-tab {{activeTab === item.value ? 'active' : ''}}"
+      class="message-tab {{activeTabIndex == index ? 'active' : ''}}"
       data-value="{{item.value}}"
+      data-index="{{index}}"
       bindtap="changeTab"
     >
       {{item.label}}
@@ -26,21 +27,24 @@
   <view
     wx:for="{{messages}}"
     wx:key="id"
-    class="message-card {{item.is_read ? 'read' : 'unread'}}"
+    class="message-card severity-{{item.severity}} {{item.is_read ? 'read' : 'unread'}}"
     data-id="{{item.id}}"
     bindtap="openMessage"
   >
-    <view class="message-icon type-{{item.message_type}}">
-      {{item.message_type === "notice" ? "!" : "i"}}
+    <view class="message-icon severity-icon-{{item.severity}}">
+      {{item.severity === "critical" ? "!" : item.severity === "high" ? "↑" : item.severity === "warning" ? "!" : "i"}}
     </view>
     <view class="message-content">
       <view class="message-title-row">
         <view class="message-title">{{item.title}}</view>
         <view wx:if="{{!item.is_read}}" class="unread-dot"></view>
       </view>
+      <view class="message-meta">
+        <text class="severity-tag tag-{{item.severity}}">{{item.severityText}}</text>
+        <text wx:if="{{item.action_path}}" class="message-action-hint">点击可查看分析</text>
+      </view>
       <view class="message-text">{{item.content}}</view>
       <view class="message-time">{{item.displayTime}}</view>
     </view>
   </view>
 </view>
-
