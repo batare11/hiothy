@@ -2,7 +2,7 @@
   <view class="card analysis-card">
     <view class="analysis-header">
       <view>
-        <view class="section-title">血压分析</view>
+        <view class="section-title">血压走势图</view>
         <view class="section-desc">{{trendCaption}}</view>
       </view>
       <view class="legend">
