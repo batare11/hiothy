@@ -1,73 +1,154 @@
 .profile-hero {
+  position: relative;
   display: flex;
   align-items: center;
   margin: 4rpx 0 16rpx;
-  padding: 22rpx 24rpx;
+  padding: 16rpx 20rpx;
+  overflow: hidden;
   color: #FFFFFF;
-  background: linear-gradient(135deg, #1677FF, #4598FF);
+  background:
+    radial-gradient(circle at 88% 20%, rgba(255, 255, 255, 0.18), transparent 35%),
+    linear-gradient(135deg, #1268E5, #51A2FF);
   border-radius: 24rpx;
+  box-shadow: 0 10rpx 28rpx rgba(22, 119, 255, 0.2);
 }
 
 .avatar-button {
+  position: relative;
+  z-index: 2;
+  display: block;
   width: 88rpx;
   height: 88rpx;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
+  color: inherit;
   background: transparent;
+  border: 0;
   border-radius: 50%;
+  line-height: 1;
+}
+
+.avatar-button::after {
+  display: none;
+}
+
+.avatar-shell {
+  position: relative;
+  display: flex;
+  width: 86rpx;
+  height: 86rpx;
+  padding: 5rpx;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.26);
+  border: 2rpx solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  box-shadow:
+    0 8rpx 20rpx rgba(0, 63, 155, 0.2),
+    inset 0 0 0 2rpx rgba(255, 255, 255, 0.12);
 }
 
 .avatar {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 76rpx;
+  height: 76rpx;
+  overflow: hidden;
+  background: #FFFFFF;
+  border: 3rpx solid #FFFFFF;
+  border-radius: 50%;
+}
+
+.avatar-placeholder {
   display: flex;
-  width: 88rpx;
-  height: 88rpx;
+  align-items: center;
+  justify-content: center;
+  color: #1268E5;
+  background: linear-gradient(145deg, #FFFFFF, #EAF4FF);
+}
+
+.avatar-letter {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.avatar-edit-badge {
+  position: absolute;
+  right: -2rpx;
+  bottom: -1rpx;
+  display: flex;
+  width: 30rpx;
+  height: 30rpx;
   align-items: center;
   justify-content: center;
   color: #1677FF;
   background: #FFFFFF;
-  border: 4rpx solid rgba(255, 255, 255, 0.55);
+  border: 3rpx solid #D9ECFF;
   border-radius: 50%;
-  font-size: 34rpx;
+  box-shadow: 0 4rpx 10rpx rgba(0, 70, 160, 0.2);
+}
+
+.avatar-edit-icon {
+  color: #1677FF;
+  font-size: 24rpx;
   font-weight: 600;
+  line-height: 26rpx;
 }
 
 .profile-main {
   min-width: 0;
-  margin-left: 18rpx;
+  margin-left: 16rpx;
   flex: 1;
 }
 
 .profile-name {
   overflow: hidden;
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .profile-id {
-  margin-top: 5rpx;
+  margin-top: 2rpx;
   color: rgba(255, 255, 255, 0.78);
-  font-size: 21rpx;
-}
-
-.safe-tag {
-  padding: 7rpx 12rpx;
-  color: #FFFFFF;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 999rpx;
   font-size: 19rpx;
 }
 
+.avatar-hint {
+  margin-top: 3rpx;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 17rpx;
+}
+
+.safe-tag {
+  padding: 5rpx 10rpx;
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999rpx;
+  font-size: 17rpx;
+}
+
 .compact-card {
-  margin-bottom: 16rpx;
-  padding: 22rpx 24rpx;
+  margin-bottom: 14rpx;
+  padding: 16rpx 22rpx;
+}
+
+.compact-card > .section-title {
+  font-size: 29rpx;
+  line-height: 38rpx;
+}
+
+.compact-card > .section-desc {
+  margin-top: 2rpx;
+  font-size: 20rpx;
 }
 
 .profile-row {
   display: flex;
-  min-height: 76rpx;
+  min-height: 64rpx;
   align-items: center;
   border-bottom: 1rpx solid #F2F3F5;
 }
@@ -86,9 +167,10 @@
 }
 
 .profile-save {
-  height: 70rpx;
-  margin-top: 18rpx;
-  font-size: 27rpx;
+  height: 62rpx;
+  margin-top: 12rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
 }
 
 .feedback-heading,

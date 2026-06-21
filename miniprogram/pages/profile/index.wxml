@@ -1,12 +1,26 @@
 <view class="page">
   <view class="profile-hero">
     <button class="avatar-button" open-type="chooseAvatar" bindchooseavatar="chooseAvatar">
-      <image wx:if="{{profile.avatar_url}}" class="avatar" src="{{profile.avatar_url}}" mode="aspectFill"></image>
-      <view wx:else class="avatar avatar-placeholder">{{avatarLetter}}</view>
+      <view class="avatar-shell">
+        <image
+          wx:if="{{profile.avatar_url}}"
+          class="avatar"
+          src="{{profile.avatar_url}}"
+          mode="aspectFill"
+          binderror="handleAvatarError"
+        ></image>
+        <view wx:else class="avatar avatar-placeholder">
+          <text class="avatar-letter">{{avatarLetter}}</text>
+        </view>
+        <view class="avatar-edit-badge">
+          <text class="avatar-edit-icon">＋</text>
+        </view>
+      </view>
     </button>
     <view class="profile-main">
       <view class="profile-name">{{profile.nickname || "微信用户"}}</view>
       <view class="profile-id">健康档案 ID：{{shortUserId}}</view>
+      <view class="avatar-hint">点击头像即可更换</view>
     </view>
     <view class="safe-tag">资料安全</view>
   </view>
