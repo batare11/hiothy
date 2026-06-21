@@ -1,5 +1,6 @@
 """GLM 云端视觉 OCR 适配器（OpenAI 兼容消息格式）。"""
 
+import base64
 import json
 import logging
 import re
@@ -10,10 +11,7 @@ from fastapi import HTTPException, status
 from app.core.config import settings
 from app.services.ocr import extract_values
 from app.services.ocr_providers.base import is_complete
-from app.services.ocr_providers.temp_files import (
-    create_temp_image,
-    delete_temp_image,
-)
+from app.services.ocr_providers.temp_files import normalize_image_to_jpeg
 
 logger = logging.getLogger(__name__)
 
@@ -108,43 +106,34 @@ class GlmOcrProvider:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=GLM_OCR_UNAVAILABLE_MESSAGE,
             )
-        if not settings.glm_ocr_public_base_url:
-            logger.warning(
-                "GLM-OCR unavailable: public temporary image URL is not configured"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=GLM_OCR_UNAVAILABLE_MESSAGE,
-            )
-
-        filename, temp_path = create_temp_image(content, content_type)
-        public_base_url = settings.glm_ocr_public_base_url.rstrip("/")
-        public_image_url = f"{public_base_url}/{filename}"
-        payload = {
-            "model": settings.glm_ocr_model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "识别这张血压计照片。"},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": public_image_url
-                            },
-                        },
-                    ],
-                },
-            ],
-            "temperature": 0,
-        }
         headers = {
             "Authorization": f"Bearer {settings.glm_ocr_api_key}",
             "Content-Type": "application/json",
         }
         timeout = httpx.Timeout(settings.glm_ocr_timeout, connect=15)
         try:
+            jpeg_content = normalize_image_to_jpeg(content, content_type)
+            encoded_image = base64.b64encode(jpeg_content).decode("ascii")
+            image_data_url = f"data:image/jpeg;base64,{encoded_image}"
+            payload = {
+                "model": settings.glm_ocr_model,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "识别这张血压计照片。"},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": image_data_url
+                                },
+                            },
+                        ],
+                    },
+                ],
+                "temperature": 0,
+            }
             async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
                 response = await client.post(
                     settings.glm_ocr_endpoint,
@@ -174,8 +163,6 @@ class GlmOcrProvider:
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=GLM_OCR_UNAVAILABLE_MESSAGE,
             ) from exc
-        finally:
-            delete_temp_image(temp_path)
 
         complete = is_complete(values)
         return {

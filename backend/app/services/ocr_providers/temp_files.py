@@ -10,6 +10,20 @@ from PIL import Image, ImageOps
 from app.core.config import settings
 
 
+def normalize_image_to_jpeg(content: bytes, content_type: str) -> bytes:
+    """校正方向并转换为 GLM 可直接读取的标准 JPEG 字节。"""
+    try:
+        with Image.open(io.BytesIO(content)) as source:
+            image = ImageOps.exif_transpose(source).convert("RGB")
+            output = io.BytesIO()
+            image.save(output, format="JPEG", quality=92, optimize=True)
+            return output.getvalue()
+    except (OSError, ValueError) as exc:
+        raise ValueError(
+            f"无法转换图片格式（{content_type or 'unknown'}）"
+        ) from exc
+
+
 def _temp_dir() -> Path:
     directory = Path(settings.ocr_temp_dir).resolve()
     directory.mkdir(parents=True, exist_ok=True)
@@ -27,16 +41,7 @@ def cleanup_expired_files() -> None:
 def create_temp_image(content: bytes, content_type: str) -> tuple[str, Path]:
     """将上传图片统一转换为 GLM 支持的标准 JPEG 临时文件。"""
     cleanup_expired_files()
-    try:
-        with Image.open(io.BytesIO(content)) as source:
-            image = ImageOps.exif_transpose(source).convert("RGB")
-            output = io.BytesIO()
-            image.save(output, format="JPEG", quality=92, optimize=True)
-            normalized_content = output.getvalue()
-    except (OSError, ValueError) as exc:
-        raise ValueError(
-            f"无法转换图片格式（{content_type or 'unknown'}）"
-        ) from exc
+    normalized_content = normalize_image_to_jpeg(content, content_type)
 
     filename = f"{uuid.uuid4().hex}.jpg"
     path = _temp_dir() / filename

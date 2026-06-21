@@ -112,13 +112,12 @@ GLM_OCR_API_KEY=你的APIKey
 GLM_OCR_ENDPOINT=实际接口地址
 GLM_OCR_MODEL=实际模型名称
 GLM_OCR_TIMEOUT=60
-GLM_OCR_PUBLIC_BASE_URL=https://hiothy.cn/api/v1/ocr/temp
 OCR_AUTO_MIN_CONFIDENCE=0.85
 ```
 
 `GLM_OCR_ENDPOINT` 与 `GLM_OCR_MODEL` 应以购买服务对应的官方控制台文档为准。
-GLM-OCR 会通过不可猜测的短时 HTTPS URL 读取图片，识别请求结束后后端立即删除文件；
-Nginx 需要继续将 `/api/v1/` 代理到 FastAPI。
+GLM-OCR 图片会在内存中转换为标准 JPEG，并通过 Base64 Data URL 直接提交，
+不再依赖公网临时图片地址。Nginx 仍需将 `/api/v1/` 代理到 FastAPI。
 
 ## 上线前必须完成
 
