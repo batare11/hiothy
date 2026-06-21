@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import io
 import time
 
@@ -199,6 +200,60 @@ def test_glm_missing_configuration_uses_unified_message(monkeypatch):
         assert exc.detail == GLM_OCR_UNAVAILABLE_MESSAGE
     else:
         raise AssertionError("GLM 配置缺失时应抛出 HTTPException")
+
+
+def test_glm_sends_normalized_jpeg_as_base64_data_url(monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(settings, "glm_ocr_api_key", "test-key")
+    monkeypatch.setattr(settings, "glm_ocr_endpoint", "https://glm.test/ocr")
+    monkeypatch.setattr(settings, "glm_ocr_model", "glm-ocr")
+    captured = {}
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+        async def post(self, url, headers, json):
+            captured["payload"] = json
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    '{"systolic":128,'
+                                    '"diastolic":82,'
+                                    '"heart_rate":72}'
+                                )
+                            }
+                        }
+                    ]
+                },
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+    result = asyncio.run(
+        GlmOcrProvider().recognize(image_bytes("WEBP"), "image/webp")
+    )
+
+    image_url = captured["payload"]["messages"][1]["content"][1][
+        "image_url"
+    ]["url"]
+    assert image_url.startswith("data:image/jpeg;base64,")
+    encoded = image_url.split(",", 1)[1]
+    decoded = base64.b64decode(encoded)
+    assert decoded.startswith(b"\xff\xd8\xff")
+    assert result["systolic"] == 128
+    assert result["complete"] is True
 
 
 @pytest.mark.parametrize("response_status", [402, 429, 500])
