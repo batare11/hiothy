@@ -41,6 +41,21 @@ AppSecret 只能保存在服务器，不能写入小程序、Git 仓库或前端
 
 ## 安装与运行
 
+首次创建 PostgreSQL 数据库时，先修改
+`scripts/schema.sql` 中的 `CHANGE_ME_STRONG_PASSWORD`，再执行：
+
+```bash
+sudo -u postgres psql -d postgres -f scripts/schema.sql
+```
+
+该脚本会直接创建完整业务表、索引和后来新增的字段，包括：
+
+- `bp_records.hypertension_grade`
+- `health_archives` 的年龄、身高、体重、性别、婚姻状态、生活习惯及备注
+
+已有数据库也可以重复执行该脚本，用于补充缺失字段并回填历史血压等级。
+Python 初始化命令仍可用于写入演示消息。
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -67,9 +82,43 @@ Authorization: Bearer 后端签发的访问令牌
 - `PUT /api/v1/blood-pressure/{id}`：修改记录
 - `DELETE /api/v1/blood-pressure/{id}`：删除记录
 - `GET /api/v1/messages?state=unread|read|all`：消息列表
+- `GET /api/v1/messages/unread-count`：未读消息数量
 - `PUT /api/v1/messages/{id}/read`：消息已读
 - `GET/PUT /api/v1/profile`：个人资料
 - `POST /api/v1/feedback`：意见反馈
+- `GET /api/v1/feedback`：查询当前用户的历史反馈
+
+血压记录保存或修改后，后端会自动生成血压异常提醒；最近连续 3 次达到
+高血压范围时，会额外生成连续异常提醒。自动消息通过 `dedupe_key` 防止重复。
+
+### OCR 引擎
+
+识别接口通过查询参数选择引擎：
+
+```text
+POST /api/v1/ocr/blood-pressure?engine=rapid
+POST /api/v1/ocr/blood-pressure?engine=glm
+POST /api/v1/ocr/blood-pressure?engine=auto
+```
+
+- `rapid`：现有本地 RapidOCR 血压专用识别。
+- `glm`：使用配置的 GLM 云端视觉接口。
+- `auto`：RapidOCR 优先；结果不完整或置信度不足时调用 GLM，并择优返回。
+
+GLM配置全部位于服务器 `.env`，API Key 不得写入小程序或 Git：
+
+```env
+GLM_OCR_API_KEY=你的APIKey
+GLM_OCR_ENDPOINT=实际接口地址
+GLM_OCR_MODEL=实际模型名称
+GLM_OCR_TIMEOUT=60
+GLM_OCR_PUBLIC_BASE_URL=https://hiothy.cn/api/v1/ocr/temp
+OCR_AUTO_MIN_CONFIDENCE=0.85
+```
+
+`GLM_OCR_ENDPOINT` 与 `GLM_OCR_MODEL` 应以购买服务对应的官方控制台文档为准。
+GLM-OCR 会通过不可猜测的短时 HTTPS URL 读取图片，识别请求结束后后端立即删除文件；
+Nginx 需要继续将 `/api/v1/` 代理到 FastAPI。
 
 ## 上线前必须完成
 

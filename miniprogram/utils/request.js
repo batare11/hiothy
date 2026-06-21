@@ -100,18 +100,18 @@ function checkBackend() {
   });
 }
 
-async function uploadImage(filePath) {
+async function uploadImage(filePath, engine = "rapid") {
   // 先验证基础连接，避免把“后端未启动”误报成“图片上传失败”。
   await checkBackend();
 
   await getApp().ensureLogin();
-  return uploadImageOnce(filePath, false);
+  return uploadImageOnce(filePath, engine, false);
 }
 
-function uploadImageOnce(filePath, retried) {
+function uploadImageOnce(filePath, engine, retried) {
   return new Promise((resolve, reject) => {
     wx.uploadFile({
-      url: `${BASE_URL}/ocr/blood-pressure`,
+      url: `${BASE_URL}/ocr/blood-pressure?engine=${encodeURIComponent(engine)}`,
       filePath,
       name: "file",
       timeout: UPLOAD_TIMEOUT,
@@ -132,7 +132,7 @@ function uploadImageOnce(filePath, retried) {
         }
         if (res.statusCode === 401 && !retried) {
           getApp().ensureLogin(true)
-            .then(() => uploadImageOnce(filePath, true))
+            .then(() => uploadImageOnce(filePath, engine, true))
             .then(resolve)
             .catch(reject);
           return;

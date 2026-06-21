@@ -1,0 +1,35 @@
+<view class="tab-shell">
+  <view class="tab-bar">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="pagePath"
+      class="tab-item {{selected === index ? 'active' : ''}}"
+      data-index="{{index}}"
+      bindtap="switchTab"
+    >
+      <view class="tab-icon-wrap">
+        <view wx:if="{{item.icon === 'home'}}" class="tab-icon home-icon">
+          <view class="home-roof"></view>
+          <view class="home-body"></view>
+        </view>
+        <view wx:elif="{{item.icon === 'chart'}}" class="tab-icon chart-icon">
+          <view class="chart-bar short"></view>
+          <view class="chart-bar medium"></view>
+          <view class="chart-bar tall"></view>
+        </view>
+        <view wx:elif="{{item.icon === 'message'}}" class="tab-icon message-icon">
+          <view class="message-body"></view>
+          <view class="message-tail"></view>
+          <view wx:if="{{unreadCount > 0}}" class="tab-unread-badge">
+            {{unreadBadge}}
+          </view>
+        </view>
+        <view wx:else class="tab-icon profile-icon">
+          <view class="profile-head"></view>
+          <view class="profile-body"></view>
+        </view>
+      </view>
+      <text class="tab-text">{{item.text}}</text>
+    </view>
+  </view>
+</view>

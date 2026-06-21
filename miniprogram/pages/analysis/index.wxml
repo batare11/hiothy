@@ -1,0 +1,244 @@
+<view class="page">
+  <view class="card analysis-card">
+    <view class="analysis-header">
+      <view>
+        <view class="section-title">血压分析</view>
+        <view class="section-desc">{{trendCaption}}</view>
+      </view>
+      <view class="legend">
+        <text class="legend-dot systolic-dot"></text>高压
+        <text class="legend-dot diastolic-dot"></text>低压
+        <text class="legend-dot heart-dot"></text>心率
+      </view>
+    </view>
+
+    <view class="dimension-tabs">
+      <view
+        wx:for="{{dimensions}}"
+        wx:key="value"
+        class="dimension-tab {{dimension === item.value ? 'active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="changeDimension"
+      >{{item.label}}</view>
+    </view>
+
+    <view class="date-range">
+      <picker mode="date" value="{{startDate}}" bindchange="changeStartDate">
+        <view class="range-picker">{{startDate}}</view>
+      </picker>
+      <text class="range-separator">至</text>
+      <picker mode="date" value="{{endDate}}" bindchange="changeEndDate">
+        <view class="range-picker">{{endDate}}</view>
+      </picker>
+      <view class="query-btn" bindtap="loadTrend">查询</view>
+    </view>
+
+    <view class="summary-grid">
+      <view class="summary-item">
+        <view class="summary-value">{{summary.avg_systolic || "--"}}</view>
+        <view class="summary-label">平均高压</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-value">{{summary.avg_diastolic || "--"}}</view>
+        <view class="summary-label">平均低压</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-value">{{summary.avg_heart_rate || "--"}}</view>
+        <view class="summary-label">平均心率</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-value warning-value">{{summary.abnormal_count || 0}}</view>
+        <view class="summary-label">异常次数</view>
+      </view>
+    </view>
+
+    <view class="chart-wrap">
+      <canvas canvas-id="trendChart" class="trend-chart"></canvas>
+      <view wx:if="{{!trendLoading && !hasTrendData}}" class="chart-empty">
+        暂无趋势数据，先记录一次血压吧
+      </view>
+      <view wx:if="{{trendLoading}}" class="chart-empty">趋势加载中...</view>
+    </view>
+  </view>
+
+  <view class="card recent-card">
+    <view class="recent-header">
+      <view class="section-title">最近三次记录</view>
+      <view class="recent-actions">
+        <view class="record-count">共 {{recordTotal}} 条</view>
+        <view class="more-records-btn" bindtap="openRecordsModal">更多 ›</view>
+      </view>
+    </view>
+    <view wx:if="{{!records.length}}" class="empty-state">暂无记录</view>
+    <view wx:for="{{records}}" wx:key="id" class="record-row">
+      <view>
+        <view class="record-date">{{item.displayTime}}</view>
+        <view class="record-note">{{item.note || "无备注"}}</view>
+      </view>
+      <view class="record-values">
+        <text class="record-pressure">{{item.systolic}}/{{item.diastolic}}</text>
+        <text class="record-heart">心率 {{item.heart_rate || "--"}}</text>
+      </view>
+      <view class="status-tag status-{{item.status}}">{{item.status_text}}</view>
+    </view>
+  </view>
+
+  <view class="card grade-card">
+    <view class="grade-card-header">
+      <view>
+        <view class="section-title">血压等级分析</view>
+        <view class="section-desc">所选时间范围内各等级记录分布</view>
+      </view>
+      <view
+        wx:if="{{summary.latest_grade}}"
+        class="latest-grade grade-{{summary.latest_grade.category}}"
+      >
+        最近：{{summary.latest_grade.status_text}}
+      </view>
+    </view>
+
+    <view wx:if="{{!summary.grade_distribution.length}}" class="empty-state">
+      暂无等级数据
+    </view>
+    <view wx:else class="grade-distribution">
+      <view
+        wx:for="{{summary.grade_distribution}}"
+        wx:key="category"
+        class="grade-distribution-row"
+      >
+        <view class="grade-row-top">
+          <view class="grade-name">
+            <text class="grade-dot grade-bg-{{item.category}}"></text>
+            {{item.label}}
+          </view>
+          <view class="grade-count">{{item.count}} 次 · {{item.percent}}%</view>
+        </view>
+        <view class="grade-track">
+          <view
+            class="grade-bar grade-bg-{{item.category}}"
+            style="width: {{item.barWidth}}%;"
+          ></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="grade-standard-title">成人诊室血压分级标准</view>
+    <view class="grade-standard-list">
+      <view wx:for="{{gradeStandards}}" wx:key="category" class="grade-standard-row">
+        <view class="standard-label grade-{{item.category}}">{{item.label}}</view>
+        <view class="standard-range">{{item.range}}</view>
+      </view>
+    </view>
+    <view class="grade-tip">
+      收缩压与舒张压分属不同等级时按较高等级展示；单次家庭测量不能代替高血压诊断。
+    </view>
+  </view>
+
+  <view wx:if="{{recordsModalVisible}}" class="modal-mask" catchtap="closeRecordsModal">
+    <view class="records-modal" catchtap="noop">
+      <view class="modal-header">
+        <view>
+          <view class="modal-title">全部血压记录</view>
+          <view class="modal-subtitle">按测量时间倒序排列</view>
+        </view>
+        <view class="modal-close" bindtap="closeRecordsModal">×</view>
+      </view>
+
+      <view class="record-filter">
+        <view class="filter-date-row">
+          <picker
+            class="filter-date-picker"
+            mode="date"
+            value="{{recordFilters.startTime}}"
+            end="{{recordFilterMaxDate}}"
+            bindchange="changeRecordStartDate"
+          >
+            <view class="datetime-picker {{recordFilters.startTime ? '' : 'datetime-placeholder'}}">
+              <text class="datetime-prefix">起</text>
+              <text class="datetime-value">{{recordFilters.startTime || "开始日期"}}</text>
+              <text class="datetime-arrow">›</text>
+            </view>
+          </picker>
+          <text class="filter-date-separator">至</text>
+          <picker
+            class="filter-date-picker"
+            mode="date"
+            value="{{recordFilters.endTime}}"
+            end="{{recordFilterMaxDate}}"
+            bindchange="changeRecordEndDate"
+          >
+            <view class="datetime-picker {{recordFilters.endTime ? '' : 'datetime-placeholder'}}">
+              <text class="datetime-prefix">止</text>
+              <text class="datetime-value">{{recordFilters.endTime || "结束日期"}}</text>
+              <text class="datetime-arrow">›</text>
+            </view>
+          </picker>
+        </view>
+        <view class="filter-actions">
+          <button class="filter-reset-btn" bindtap="resetRecordFilters">重置</button>
+          <button class="filter-query-btn" bindtap="queryAllRecords">查询</button>
+        </view>
+      </view>
+
+      <scroll-view class="records-scroll" scroll-y>
+        <view wx:if="{{allRecordsLoading}}" class="loading">记录加载中...</view>
+        <view wx:elif="{{!allRecords.length}}" class="modal-empty">没有符合条件的记录</view>
+        <view wx:for="{{allRecords}}" wx:key="id" class="all-record-item">
+          <view class="all-record-top">
+            <view class="all-record-time">{{item.displayTime}}</view>
+            <view class="status-tag status-{{item.status}}">{{item.status_text}}</view>
+          </view>
+          <view class="all-record-body">
+            <view class="all-record-reading">
+              <text class="all-record-pressure">{{item.systolic}}/{{item.diastolic}}</text>
+              <text class="all-record-unit">mmHg</text>
+              <text class="all-record-heart">心率 {{item.heart_rate || "--"}} 次/分</text>
+            </view>
+            <view class="all-record-note">{{item.note || "无备注"}}</view>
+          </view>
+          <view class="record-operation-row">
+            <button class="record-edit-btn" data-id="{{item.id}}" bindtap="openEditRecord">编辑</button>
+            <button class="record-delete-btn" data-id="{{item.id}}" bindtap="deleteRecord">删除</button>
+          </view>
+        </view>
+      </scroll-view>
+
+      <view class="pagination">
+        <button class="page-btn" disabled="{{recordsPage <= 1}}" bindtap="previousRecordsPage">上一页</button>
+        <view class="page-info">第 {{recordsPage}} / {{recordsTotalPages}} 页 · 共 {{recordsTotal}} 条</view>
+        <button class="page-btn" disabled="{{recordsPage >= recordsTotalPages}}" bindtap="nextRecordsPage">下一页</button>
+      </view>
+
+      <view wx:if="{{editVisible}}" class="edit-panel">
+        <view class="edit-card">
+          <view class="modal-header">
+            <view class="modal-title">编辑血压记录</view>
+            <view class="modal-close" bindtap="closeEditRecord">×</view>
+          </view>
+          <view class="edit-grid">
+            <view class="edit-field">
+              <view class="edit-label">高压</view>
+              <input class="edit-input" type="number" value="{{editForm.systolic}}" data-field="systolic" bindinput="handleEditInput" />
+            </view>
+            <view class="edit-field">
+              <view class="edit-label">低压</view>
+              <input class="edit-input" type="number" value="{{editForm.diastolic}}" data-field="diastolic" bindinput="handleEditInput" />
+            </view>
+            <view class="edit-field">
+              <view class="edit-label">心率</view>
+              <input class="edit-input" type="number" value="{{editForm.heartRate}}" data-field="heartRate" bindinput="handleEditInput" />
+            </view>
+          </view>
+          <view class="edit-label edit-time-label">测量时间（不可修改）</view>
+          <view class="readonly-time">{{editForm.measuredAt}}</view>
+          <view class="edit-label edit-time-label">备注</view>
+          <input class="edit-input full-edit-input" value="{{editForm.note}}" data-field="note" bindinput="handleEditInput" placeholder="请输入备注" />
+          <view class="edit-actions">
+            <button class="edit-cancel-btn" bindtap="closeEditRecord">取消</button>
+            <button class="edit-save-btn" loading="{{editSaving}}" bindtap="saveEditedRecord">保存修改</button>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

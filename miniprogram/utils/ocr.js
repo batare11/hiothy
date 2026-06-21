@@ -25,7 +25,10 @@ function normalizeOcrResult(response) {
     complete: Boolean(systolic && diastolic && Number(systolic) > Number(diastolic)),
     hasAnyValue: Boolean(systolic || diastolic || heartRate),
     notice: result.notice || "",
-    rawText: Array.isArray(result.raw_text) ? result.raw_text : []
+    rawText: Array.isArray(result.raw_text) ? result.raw_text : [],
+    engine: result.engine || "",
+    provider: result.provider || "",
+    fallbackUsed: Boolean(result.fallback_used)
   };
 }
 

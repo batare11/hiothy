@@ -19,6 +19,7 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.core.database import SessionLocal
 from app.models.blood_pressure import BloodPressureRecord
+from app.services.health import classify_pressure_detail
 
 SEED_MARKER = "[TREND_TEST_3Y]"
 
@@ -100,6 +101,9 @@ def build_records(user_id: str, end_time: datetime) -> list[BloodPressureRecord]
                 systolic=systolic,
                 diastolic=diastolic,
                 heart_rate=heart_rate,
+                hypertension_grade=classify_pressure_detail(
+                    systolic, diastolic
+                )["hypertension_grade"],
                 created_at=measured_at,
                 updated_at=measured_at,
                 mini_user_id=user_id,

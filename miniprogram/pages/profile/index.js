@@ -1,5 +1,5 @@
 const { request } = require("../../utils/request");
-const { formatDate } = require("../../utils/date");
+const { formatDate, formatDateTime } = require("../../utils/date");
 
 Page({
   data: {
@@ -16,28 +16,48 @@ Page({
       content: "",
       contact: ""
     },
+    feedbackHistory: [],
+    feedbackTotal: 0,
+    feedbackLoading: false,
+    feedbackExpanded: false,
     today: formatDate(new Date()),
     shortUserId: "",
     avatarLetter: "健",
     saving: false,
-    submittingFeedback: false
+    submittingFeedback: false,
+    hasLoaded: false
   },
 
   onLoad() {
     getApp().ensureLogin().then(() => {
       const userId = getApp().globalData.miniUserId || wx.getStorageSync("wechatUserId");
       this.setData({ shortUserId: userId.slice(-12) });
+      return this.refreshPage();
     }).catch(() => {
       this.setData({ shortUserId: "登录失败" });
     });
   },
 
   onShow() {
-    this.loadProfile();
+    const tabBar = this.getTabBar && this.getTabBar();
+    if (tabBar) {
+      tabBar.setData({ selected: 3 });
+      if (tabBar.refreshUnreadCount) tabBar.refreshUnreadCount();
+    }
+    if (this.data.hasLoaded) this.refreshPage();
   },
 
   onPullDownRefresh() {
-    this.loadProfile().finally(() => wx.stopPullDownRefresh());
+    this.refreshPage()
+      .finally(() => wx.stopPullDownRefresh());
+  },
+
+  async refreshPage() {
+    await Promise.all([
+      this.loadProfile(),
+      this.loadFeedbackHistory()
+    ]);
+    this.setData({ hasLoaded: true });
   },
 
   async loadProfile() {
@@ -106,6 +126,46 @@ Page({
     this.setData({ [`feedback.${field}`]: event.detail.value });
   },
 
+  async loadFeedbackHistory() {
+    if (this.data.feedbackLoading) return;
+    this.setData({ feedbackLoading: true });
+    try {
+      const response = await request({
+        url: "/feedback",
+        data: {
+          page: 1,
+          page_size: this.data.feedbackExpanded ? 50 : 3
+        },
+        silent: true
+      });
+      const data = response.data || {};
+      const statusMap = {
+        pending: { text: "待处理", style: "pending" },
+        processing: { text: "处理中", style: "processing" },
+        resolved: { text: "已处理", style: "resolved" }
+      };
+      this.setData({
+        feedbackHistory: (data.items || []).map((item) => ({
+          ...item,
+          displayTime: formatDateTime(item.created_at),
+          statusText: (statusMap[item.status] || statusMap.pending).text,
+          statusStyle: (statusMap[item.status] || statusMap.pending).style
+        })),
+        feedbackTotal: data.total || 0
+      });
+    } catch (error) {
+      this.setData({ feedbackHistory: [], feedbackTotal: 0 });
+    } finally {
+      this.setData({ feedbackLoading: false });
+    }
+  },
+
+  toggleFeedbackHistory() {
+    this.setData({
+      feedbackExpanded: !this.data.feedbackExpanded
+    }, () => this.loadFeedbackHistory());
+  },
+
   async submitFeedback() {
     const content = this.data.feedback.content.trim();
     if (content.length < 2) {
@@ -125,6 +185,7 @@ Page({
       });
       wx.showToast({ title: response.message || "提交成功", icon: "success" });
       this.setData({ feedback: { content: "", contact: "" } });
+      await this.loadFeedbackHistory();
     } finally {
       this.setData({ submittingFeedback: false });
     }

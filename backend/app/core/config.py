@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     wechat_app_secret: str = ""
     auth_token_secret: str = ""
     auth_token_expire_days: int = 30
+    glm_ocr_api_key: str = ""
+    glm_ocr_endpoint: str = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    glm_ocr_model: str = "glm-ocr"
+    glm_ocr_timeout: int = 60
+    glm_ocr_public_base_url: str = ""
+    ocr_auto_min_confidence: float = 0.85
+    ocr_temp_dir: str = "uploads/ocr-temp"
+    ocr_temp_file_ttl: int = 300
 
     model_config = SettingsConfigDict(
         env_file=".env",

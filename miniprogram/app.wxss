@@ -19,7 +19,7 @@ button::after {
 }
 
 .page {
-  padding: 24rpx 24rpx 48rpx;
+  padding: 24rpx 24rpx calc(150rpx + env(safe-area-inset-bottom));
 }
 
 .card {
@@ -76,4 +76,3 @@ button::after {
   color: #86909C;
   text-align: center;
 }
-
