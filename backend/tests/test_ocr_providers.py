@@ -206,7 +206,7 @@ def test_auto_uses_rapid_when_confident(monkeypatch):
     assert glm.calls == 0
 
 
-def test_auto_uses_glm_when_rapid_is_incomplete(monkeypatch):
+def test_auto_uses_doubao_when_rapid_is_incomplete(monkeypatch):
     rapid = FakeProvider(
         {
             "systolic": 128,
@@ -217,29 +217,29 @@ def test_auto_uses_glm_when_rapid_is_incomplete(monkeypatch):
             "provider": "rapidocr",
         }
     )
-    glm = FakeProvider(
+    doubao = FakeProvider(
         {
             "systolic": 128,
             "diastolic": 82,
             "heart_rate": 72,
             "complete": True,
             "confidence": 0.9,
-            "provider": "glm",
+            "provider": "doubao",
         }
     )
     monkeypatch.setitem(registry.PROVIDERS, "rapid", rapid)
-    monkeypatch.setitem(registry.PROVIDERS, "glm", glm)
+    monkeypatch.setitem(registry.PROVIDERS, "doubao", doubao)
 
     result = asyncio.run(
         registry.recognize_with_provider(b"image", "image/png", "auto")
     )
-    assert result["provider"] == "glm"
+    assert result["provider"] == "doubao"
     assert result["fallback_used"] is True
     assert rapid.calls == 1
-    assert glm.calls == 1
+    assert doubao.calls == 1
 
 
-def test_auto_returns_rapid_when_glm_is_unavailable(monkeypatch):
+def test_auto_returns_rapid_when_doubao_is_unavailable(monkeypatch):
     rapid = FakeProvider(
         {
             "systolic": 128,
@@ -251,17 +251,17 @@ def test_auto_returns_rapid_when_glm_is_unavailable(monkeypatch):
             "notice": "请核对。",
         }
     )
-    glm = FakeProvider(
-        error=HTTPException(status_code=503, detail="GLM 未配置")
+    doubao = FakeProvider(
+        error=HTTPException(status_code=503, detail="豆包未配置")
     )
     monkeypatch.setitem(registry.PROVIDERS, "rapid", rapid)
-    monkeypatch.setitem(registry.PROVIDERS, "glm", glm)
+    monkeypatch.setitem(registry.PROVIDERS, "doubao", doubao)
 
     result = asyncio.run(
         registry.recognize_with_provider(b"image", "image/png", "auto")
     )
     assert result["provider"] == "rapidocr"
-    assert GLM_OCR_UNAVAILABLE_MESSAGE in result["notice"]
+    assert "豆包增强识别暂不可用" in result["notice"]
 
 
 def test_glm_missing_configuration_uses_unified_message(monkeypatch):

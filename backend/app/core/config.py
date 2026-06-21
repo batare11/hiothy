@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     glm_ocr_structured_model: str = ""
     glm_ocr_timeout: int = 60
     glm_ocr_public_base_url: str = ""
+    doubao_api_key: str = ""
+    doubao_endpoint: str = (
+        "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+    )
+    doubao_model: str = ""
+    doubao_timeout: int = 60
     ocr_auto_min_confidence: float = 0.85
     ocr_temp_dir: str = "uploads/ocr-temp"
     ocr_temp_file_ttl: int = 300
