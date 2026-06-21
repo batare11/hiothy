@@ -19,9 +19,9 @@ Page({
         description: "本地处理，速度快"
       },
       {
-        value: "glm",
+        value: "doubao",
         label: "增强识别",
-        description: "云端 AI，复杂图片效果更好"
+        description: "豆包视觉 AI，复杂图片效果更好"
       },
       {
         value: "auto",
@@ -103,17 +103,26 @@ Page({
   selectOcrEngine(event) {
     const engine = event.currentTarget.dataset.value;
     if (engine === this.data.ocrEngine) return;
+    const cloudOcrPrompt = engine === "doubao"
+      ? {
+          title: "使用豆包增强识别",
+          content: "图片将发送至火山引擎豆包 AI，仅用于识别血压数据。是否继续？"
+        }
+      : {
+          title: "使用智能识别",
+          content: "必要时图片将发送至火山引擎豆包 AI，辅助识别血压数据。是否继续？"
+        };
     if (
       engine !== "rapid" &&
-      !wx.getStorageSync("cloudOcrConsent")
+      !wx.getStorageSync("doubaoOcrConsent")
     ) {
       wx.showModal({
-        title: "启用云端识别",
-        content: "增强识别会将本次血压计图片发送给云端 AI 服务处理，仅用于提取高压、低压和心率。是否同意？",
-        confirmText: "同意使用",
+        title: cloudOcrPrompt.title,
+        content: cloudOcrPrompt.content,
+        confirmText: "确认使用",
         success: ({ confirm }) => {
           if (!confirm) return;
-          wx.setStorageSync("cloudOcrConsent", true);
+          wx.setStorageSync("doubaoOcrConsent", true);
           this.setData({ ocrEngine: engine });
         }
       });
