@@ -14,9 +14,12 @@ from app.services.ocr_providers.glm import (
     GLM_OCR_UNAVAILABLE_MESSAGE,
     GlmOcrProvider,
     _extract_ocr_text,
+    _merge_values,
     _parse_json_content,
     _resolve_endpoint,
+    _resolve_chat_endpoint,
     _safe_error_detail,
+    _validate_structured_values,
 )
 from app.services.ocr_providers.temp_files import (
     create_temp_image,
@@ -63,6 +66,9 @@ def test_glm_ocr_endpoint_and_response_protocol():
     assert _resolve_endpoint(
         "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
     ) == "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
+    assert _resolve_chat_endpoint(
+        "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
+    ) == "https://open.bigmodel.cn/api/paas/v4/chat/completions"
     text = _extract_ocr_text(
         {
             "md_results": "SYS 128\nDIA 82\nPUL 72",
@@ -70,6 +76,57 @@ def test_glm_ocr_endpoint_and_response_protocol():
         }
     )
     assert "SYS 128" in text
+
+
+def test_glm_extracts_deeply_nested_layout_text():
+    text = _extract_ocr_text(
+        {
+            "md_results": "",
+            "layout_details": [
+                {
+                    "blocks": [
+                        {"lines": [{"text": "SYS"}, {"content": "128"}]},
+                        {"children": [{"content": "DIA 82"}]},
+                        {"children": [{"text": "PUL 72"}]},
+                    ]
+                }
+            ],
+        }
+    )
+    assert _parse_json_content(text) == {
+        "systolic": 128,
+        "diastolic": 82,
+        "heart_rate": 72,
+    }
+
+
+def test_glm_parser_falls_back_when_unrelated_json_is_present():
+    result = _parse_json_content(
+        '{"page": 1, "bbox": [10, 20, 30, 40]}\n'
+        "SYS 128 DIA 82 PUL 72"
+    )
+    assert result == {"systolic": 128, "diastolic": 82, "heart_rate": 72}
+
+
+def test_structured_values_must_exist_in_ocr_text():
+    values = _validate_structured_values(
+        "SYS 128 DIA 82 PUL 72",
+        {"systolic": 128, "diastolic": 90, "heart_rate": 72},
+    )
+    assert values == {"systolic": 128, "diastolic": None, "heart_rate": 72}
+
+
+def test_structured_values_support_spaced_digits_and_safe_merge():
+    structured = _validate_structured_values(
+        "SYS 1 2 8 DIA 8 2 PUL 7 2",
+        {"systolic": 128, "diastolic": 82, "heart_rate": 72},
+    )
+    assert structured == {"systolic": 128, "diastolic": 82, "heart_rate": 72}
+    merged = _merge_values(
+        {"systolic": 128, "diastolic": None, "heart_rate": None},
+        structured,
+    )
+    assert merged == {"systolic": 128, "diastolic": 82, "heart_rate": 72}
 
 
 def test_glm_error_detail_is_safe_and_useful():
@@ -220,6 +277,10 @@ def test_glm_missing_configuration_uses_unified_message(monkeypatch):
         raise AssertionError("GLM 配置缺失时应抛出 HTTPException")
 
 
+def test_structured_model_is_disabled_by_default():
+    assert settings.glm_ocr_structured_model == ""
+
+
 def test_glm_sends_normalized_jpeg_as_base64_data_url(monkeypatch):
     import httpx
 
@@ -230,6 +291,7 @@ def test_glm_sends_normalized_jpeg_as_base64_data_url(monkeypatch):
         "https://glm.test/api/paas/v4/chat/completions",
     )
     monkeypatch.setattr(settings, "glm_ocr_model", "glm-ocr")
+    monkeypatch.setattr(settings, "glm_ocr_structured_model", "glm-5.2")
     captured = {}
 
     class FakeAsyncClient:
@@ -243,8 +305,28 @@ def test_glm_sends_normalized_jpeg_as_base64_data_url(monkeypatch):
             return False
 
         async def post(self, url, headers, json):
-            captured["url"] = url
-            captured["payload"] = json
+            if url.endswith("/chat/completions"):
+                captured["structured_url"] = url
+                captured["structured_payload"] = json
+                return httpx.Response(
+                    200,
+                    request=httpx.Request("POST", url),
+                    json={
+                        "choices": [
+                            {
+                                "message": {
+                                    "content": (
+                                        '{"systolic":128,'
+                                        '"diastolic":82,'
+                                        '"heart_rate":72}'
+                                    )
+                                }
+                            }
+                        ]
+                    },
+                )
+            captured["ocr_url"] = url
+            captured["ocr_payload"] = json
             return httpx.Response(
                 200,
                 request=httpx.Request("POST", url),
@@ -266,20 +348,70 @@ def test_glm_sends_normalized_jpeg_as_base64_data_url(monkeypatch):
         GlmOcrProvider().recognize(image_bytes("WEBP"), "image/webp")
     )
 
-    assert captured["url"].endswith("/layout_parsing")
-    assert set(captured["payload"]) == {
+    assert captured["ocr_url"].endswith("/layout_parsing")
+    assert set(captured["ocr_payload"]) == {
         "model",
         "file",
         "return_crop_images",
         "need_layout_visualization",
     }
-    image_url = captured["payload"]["file"]
+    image_url = captured["ocr_payload"]["file"]
     assert image_url.startswith("data:image/jpeg;base64,")
     encoded = image_url.split(",", 1)[1]
     decoded = base64.b64decode(encoded)
     assert decoded.startswith(b"\xff\xd8\xff")
+    assert captured["structured_url"].endswith("/chat/completions")
+    assert captured["structured_payload"]["response_format"] == {
+        "type": "json_object"
+    }
     assert result["systolic"] == 128
     assert result["complete"] is True
+
+
+def test_glm_structured_failure_keeps_local_values(monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(settings, "glm_ocr_api_key", "test-key")
+    monkeypatch.setattr(
+        settings,
+        "glm_ocr_endpoint",
+        "https://glm.test/api/paas/v4/layout_parsing",
+    )
+    monkeypatch.setattr(settings, "glm_ocr_model", "glm-ocr")
+    monkeypatch.setattr(settings, "glm_ocr_structured_model", "glm-5.2")
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+        async def post(self, url, headers, json):
+            if url.endswith("/chat/completions"):
+                raise httpx.ConnectError(
+                    "structured unavailable",
+                    request=httpx.Request("POST", url),
+                )
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                json={
+                    "md_results": "SYS 128 DIA 82 PUL 72",
+                    "layout_details": [],
+                },
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+    result = asyncio.run(
+        GlmOcrProvider().recognize(image_bytes(), "image/png")
+    )
+    assert result["systolic"] == 128
+    assert result["diastolic"] == 82
+    assert result["heart_rate"] == 72
 
 
 @pytest.mark.parametrize("response_status", [402, 429, 500])
