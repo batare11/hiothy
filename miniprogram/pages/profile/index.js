@@ -81,6 +81,10 @@ Page({
     wx.showToast({ title: "头像将在保存后生效", icon: "none" });
   },
 
+  handleAvatarError() {
+    this.setData({ "profile.avatar_url": "" });
+  },
+
   handleProfileInput(event) {
     const field = event.currentTarget.dataset.field;
     this.setData({ [`profile.${field}`]: event.detail.value });
