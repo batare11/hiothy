@@ -6,19 +6,21 @@ from fastapi import HTTPException
 
 from app.core.config import settings
 from app.services.ocr_providers.base import is_complete, result_rank
-from app.services.ocr_providers.glm import (
-    GLM_OCR_UNAVAILABLE_MESSAGE,
-    GlmOcrProvider,
+from app.services.ocr_providers.doubao import (
+    DOUBAO_OCR_UNAVAILABLE_MESSAGE,
+    DoubaoOcrProvider,
 )
+from app.services.ocr_providers.glm import GlmOcrProvider
 from app.services.ocr_providers.rapid import RapidOcrProvider
 
 logger = logging.getLogger(__name__)
 
 PROVIDERS = {
     "rapid": RapidOcrProvider(),
+    "doubao": DoubaoOcrProvider(),
     "glm": GlmOcrProvider(),
 }
-SUPPORTED_ENGINES = ("rapid", "glm", "auto")
+SUPPORTED_ENGINES = ("rapid", "doubao", "glm", "auto")
 
 
 def _rapid_is_confident(result: dict) -> bool:
@@ -53,7 +55,10 @@ async def recognize_with_provider(
         }
 
     try:
-        glm_result = await PROVIDERS["glm"].recognize(content, content_type)
+        doubao_result = await PROVIDERS["doubao"].recognize(
+            content,
+            content_type,
+        )
     except HTTPException as exc:
         logger.warning("Auto OCR fallback unavailable: %s", exc.detail)
         return {
@@ -63,16 +68,16 @@ async def recognize_with_provider(
             "fallback_used": False,
             "notice": (
                 f"{rapid_result.get('notice', '')}"
-                f" {GLM_OCR_UNAVAILABLE_MESSAGE}，已返回快速识别结果。"
+                f" {DOUBAO_OCR_UNAVAILABLE_MESSAGE}，已返回快速识别结果。"
             ).strip(),
         }
 
-    best_result = max((rapid_result, glm_result), key=result_rank)
+    best_result = max((rapid_result, doubao_result), key=result_rank)
     selected_provider = best_result.get("provider")
     return {
         **best_result,
         "engine": "auto",
         "provider": selected_provider,
         "fallback_used": True,
-        "candidate_providers": ["rapidocr", "glm"],
+        "candidate_providers": ["rapidocr", "doubao"],
     }

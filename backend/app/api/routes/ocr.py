@@ -30,7 +30,10 @@ def get_temporary_ocr_image(filename: str) -> FileResponse:
 @router.post("/blood-pressure")
 async def ocr_blood_pressure(
     file: UploadFile = File(...),
-    engine: str = Query(default="rapid", pattern="^(rapid|glm|auto)$"),
+    engine: str = Query(
+        default="rapid",
+        pattern="^(rapid|doubao|glm|auto)$",
+    ),
     _: str = Depends(get_mini_user_id),
 ) -> dict:
     if file.content_type not in ALLOWED_TYPES:
