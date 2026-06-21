@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from PIL import Image
 
 from app.core.config import settings
+from app.main import app
 from app.services.ocr_providers import registry
 from app.services.ocr_providers.glm import (
     GLM_OCR_UNAVAILABLE_MESSAGE,
@@ -60,6 +61,15 @@ def test_glm_error_detail_is_safe_and_useful():
         json={"error": {"code": "1214", "message": "invalid image"}},
     )
     assert _safe_error_detail(response) == "1214: invalid image"
+
+
+def test_temporary_image_route_supports_get_and_head():
+    route = next(
+        item
+        for item in app.routes
+        if item.path == "/api/v1/ocr/temp/{filename}"
+    )
+    assert {"GET", "HEAD"}.issubset(route.methods)
 
 
 def test_temporary_image_lifecycle(monkeypatch, tmp_path):

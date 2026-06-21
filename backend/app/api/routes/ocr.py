@@ -12,7 +12,11 @@ router = APIRouter(prefix="/ocr", tags=["ocr"])
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
 
 
-@router.get("/temp/{filename}", include_in_schema=False)
+@router.api_route(
+    "/temp/{filename}",
+    methods=["GET", "HEAD"],
+    include_in_schema=False,
+)
 def get_temporary_ocr_image(filename: str) -> FileResponse:
     path = resolve_temp_image(filename)
     if path is None:
