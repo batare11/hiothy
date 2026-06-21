@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     auth_token_secret: str = ""
     auth_token_expire_days: int = 30
     glm_ocr_api_key: str = ""
-    glm_ocr_endpoint: str = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    glm_ocr_endpoint: str = "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
     glm_ocr_model: str = "glm-ocr"
     glm_ocr_timeout: int = 60
     glm_ocr_public_base_url: str = ""

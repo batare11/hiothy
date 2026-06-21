@@ -13,7 +13,9 @@ from app.services.ocr_providers import registry
 from app.services.ocr_providers.glm import (
     GLM_OCR_UNAVAILABLE_MESSAGE,
     GlmOcrProvider,
+    _extract_ocr_text,
     _parse_json_content,
+    _resolve_endpoint,
     _safe_error_detail,
 )
 from app.services.ocr_providers.temp_files import (
@@ -52,6 +54,22 @@ def test_parse_glm_structured_json():
 def test_parse_glm_alias_fields():
     result = _parse_json_content('{"sys":"135","dia":"88","pulse":"76"}')
     assert result == {"systolic": 135, "diastolic": 88, "heart_rate": 76}
+
+
+def test_glm_ocr_endpoint_and_response_protocol():
+    assert _resolve_endpoint(
+        "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    ) == "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
+    assert _resolve_endpoint(
+        "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
+    ) == "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
+    text = _extract_ocr_text(
+        {
+            "md_results": "SYS 128\nDIA 82\nPUL 72",
+            "layout_details": [],
+        }
+    )
+    assert "SYS 128" in text
 
 
 def test_glm_error_detail_is_safe_and_useful():
@@ -206,7 +224,11 @@ def test_glm_sends_normalized_jpeg_as_base64_data_url(monkeypatch):
     import httpx
 
     monkeypatch.setattr(settings, "glm_ocr_api_key", "test-key")
-    monkeypatch.setattr(settings, "glm_ocr_endpoint", "https://glm.test/ocr")
+    monkeypatch.setattr(
+        settings,
+        "glm_ocr_endpoint",
+        "https://glm.test/api/paas/v4/chat/completions",
+    )
     monkeypatch.setattr(settings, "glm_ocr_model", "glm-ocr")
     captured = {}
 
@@ -221,22 +243,21 @@ def test_glm_sends_normalized_jpeg_as_base64_data_url(monkeypatch):
             return False
 
         async def post(self, url, headers, json):
+            captured["url"] = url
             captured["payload"] = json
             return httpx.Response(
                 200,
                 request=httpx.Request("POST", url),
                 json={
-                    "choices": [
+                    "md_results": "SYS 128\nDIA 82\nPUL 72",
+                    "layout_details": [
+                        [
                         {
-                            "message": {
-                                "content": (
-                                    '{"systolic":128,'
-                                    '"diastolic":82,'
-                                    '"heart_rate":72}'
-                                )
-                            }
+                            "label": "text",
+                            "content": "SYS 128 DIA 82 PUL 72",
                         }
-                    ]
+                        ]
+                    ],
                 },
             )
 
@@ -245,9 +266,14 @@ def test_glm_sends_normalized_jpeg_as_base64_data_url(monkeypatch):
         GlmOcrProvider().recognize(image_bytes("WEBP"), "image/webp")
     )
 
-    image_url = captured["payload"]["messages"][1]["content"][1][
-        "image_url"
-    ]["url"]
+    assert captured["url"].endswith("/layout_parsing")
+    assert set(captured["payload"]) == {
+        "model",
+        "file",
+        "return_crop_images",
+        "need_layout_visualization",
+    }
+    image_url = captured["payload"]["file"]
     assert image_url.startswith("data:image/jpeg;base64,")
     encoded = image_url.split(",", 1)[1]
     decoded = base64.b64decode(encoded)

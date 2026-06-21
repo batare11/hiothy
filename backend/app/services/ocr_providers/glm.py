@@ -1,4 +1,4 @@
-"""GLM 云端视觉 OCR 适配器（OpenAI 兼容消息格式）。"""
+"""GLM-OCR 文档解析接口适配器。"""
 
 import base64
 import json
@@ -19,24 +19,27 @@ GLM_OCR_UNAVAILABLE_MESSAGE = (
     "你的增强额度已耗完，请联系管理员进行充值继续使用"
 )
 
-SYSTEM_PROMPT = """你是血压计读数识别器。只读取血压计屏幕当前测量值，忽略日期、时间、用户编号和历史记录。
-请返回严格 JSON，不要解释：
-{"systolic": 收缩压整数或null, "diastolic": 舒张压整数或null, "heart_rate": 心率整数或null}
-合理范围：收缩压50-260，舒张压30-180，心率30-220，且收缩压应大于舒张压。"""
+def _resolve_endpoint(endpoint: str) -> str:
+    """兼容旧配置中的 chat/completions，自动切到 GLM-OCR 专用端点。"""
+    normalized = endpoint.rstrip("/")
+    if normalized.endswith("/chat/completions"):
+        return normalized.removesuffix("/chat/completions") + "/layout_parsing"
+    return normalized
 
 
-def _extract_message_content(payload: dict) -> str:
-    try:
-        content = payload["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise ValueError("GLM 响应中缺少 message.content") from exc
-    if isinstance(content, list):
-        return " ".join(
-            str(item.get("text", ""))
-            for item in content
-            if isinstance(item, dict)
-        )
-    return str(content)
+def _extract_ocr_text(payload: dict) -> str:
+    parts = []
+    markdown = payload.get("md_results")
+    if markdown:
+        parts.append(str(markdown))
+    for page in payload.get("layout_details") or []:
+        for item in page or []:
+            if isinstance(item, dict) and item.get("content"):
+                parts.append(str(item["content"]))
+    text = "\n".join(parts).strip()
+    if not text:
+        raise ValueError("GLM-OCR 响应中缺少识别文本")
+    return text
 
 
 def _parse_json_content(content: str) -> dict:
@@ -117,32 +120,19 @@ class GlmOcrProvider:
             image_data_url = f"data:image/jpeg;base64,{encoded_image}"
             payload = {
                 "model": settings.glm_ocr_model,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": "识别这张血压计照片。"},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": image_data_url
-                                },
-                            },
-                        ],
-                    },
-                ],
-                "temperature": 0,
+                "file": image_data_url,
+                "return_crop_images": False,
+                "need_layout_visualization": False,
             }
             async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
                 response = await client.post(
-                    settings.glm_ocr_endpoint,
+                    _resolve_endpoint(settings.glm_ocr_endpoint),
                     headers=headers,
                     json=payload,
                 )
                 response.raise_for_status()
                 response_payload = response.json()
-            raw_text = _extract_message_content(response_payload)
+            raw_text = _extract_ocr_text(response_payload)
             values = _parse_json_content(raw_text)
         except httpx.HTTPStatusError as exc:
             detail = _safe_error_detail(exc.response)

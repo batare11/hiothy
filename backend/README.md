@@ -109,15 +109,16 @@ GLM配置全部位于服务器 `.env`，API Key 不得写入小程序或 Git：
 
 ```env
 GLM_OCR_API_KEY=你的APIKey
-GLM_OCR_ENDPOINT=实际接口地址
+GLM_OCR_ENDPOINT=https://open.bigmodel.cn/api/paas/v4/layout_parsing
 GLM_OCR_MODEL=实际模型名称
 GLM_OCR_TIMEOUT=60
 OCR_AUTO_MIN_CONFIDENCE=0.85
 ```
 
 `GLM_OCR_ENDPOINT` 与 `GLM_OCR_MODEL` 应以购买服务对应的官方控制台文档为准。
-GLM-OCR 图片会在内存中转换为标准 JPEG，并通过 Base64 Data URL 直接提交，
-不再依赖公网临时图片地址。Nginx 仍需将 `/api/v1/` 代理到 FastAPI。
+GLM-OCR 图片会在内存中转换为标准 JPEG，并通过 Base64 Data URL 提交到
+官方 `layout_parsing` 文档解析接口，不再依赖公网临时图片地址。旧环境如果仍配置
+`chat/completions`，后端会自动切换到 `layout_parsing`。
 
 ## 上线前必须完成
 
