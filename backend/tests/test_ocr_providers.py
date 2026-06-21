@@ -1,8 +1,10 @@
 import asyncio
+import io
 import time
 
 import pytest
 from fastapi import HTTPException
+from PIL import Image
 
 from app.core.config import settings
 from app.services.ocr_providers import registry
@@ -32,6 +34,12 @@ class FakeProvider:
         return dict(self.result)
 
 
+def image_bytes(image_format: str = "PNG") -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", (8, 8), color="white").save(output, format=image_format)
+    return output.getvalue()
+
+
 def test_parse_glm_structured_json():
     result = _parse_json_content(
         '```json\n{"systolic":128,"diastolic":82,"heart_rate":72}\n```'
@@ -57,17 +65,27 @@ def test_glm_error_detail_is_safe_and_useful():
 def test_temporary_image_lifecycle(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "ocr_temp_dir", str(tmp_path))
     monkeypatch.setattr(settings, "ocr_temp_file_ttl", 300)
-    filename, path = create_temp_image(b"png-data", "image/png")
-    assert filename.endswith(".png")
+    filename, path = create_temp_image(image_bytes("PNG"), "image/png")
+    assert filename.endswith(".jpg")
     assert resolve_temp_image(filename) == path
+    with Image.open(path) as image:
+        assert image.format == "JPEG"
     delete_temp_image(path)
     assert resolve_temp_image(filename) is None
+
+
+def test_webp_is_normalized_to_glm_supported_jpeg(monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "ocr_temp_dir", str(tmp_path))
+    filename, path = create_temp_image(image_bytes("WEBP"), "image/webp")
+    assert filename.endswith(".jpg")
+    with Image.open(path) as image:
+        assert image.format == "JPEG"
 
 
 def test_expired_temporary_image_is_removed(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "ocr_temp_dir", str(tmp_path))
     monkeypatch.setattr(settings, "ocr_temp_file_ttl", 60)
-    filename, path = create_temp_image(b"png-data", "image/png")
+    filename, path = create_temp_image(image_bytes("PNG"), "image/png")
     old_time = time.time() - 120
     path.touch()
     import os
@@ -165,7 +183,7 @@ def test_glm_missing_configuration_uses_unified_message(monkeypatch):
     provider = GlmOcrProvider()
 
     try:
-        asyncio.run(provider.recognize(b"image", "image/png"))
+        asyncio.run(provider.recognize(image_bytes(), "image/png"))
     except HTTPException as exc:
         assert exc.status_code == 503
         assert exc.detail == GLM_OCR_UNAVAILABLE_MESSAGE
@@ -211,7 +229,7 @@ def test_glm_http_errors_use_unified_message(
     provider = GlmOcrProvider()
 
     try:
-        asyncio.run(provider.recognize(b"image", "image/png"))
+        asyncio.run(provider.recognize(image_bytes(), "image/png"))
     except HTTPException as exc:
         assert exc.status_code == 502
         assert exc.detail == GLM_OCR_UNAVAILABLE_MESSAGE
@@ -253,7 +271,7 @@ def test_glm_network_errors_use_unified_message(monkeypatch, tmp_path):
     provider = GlmOcrProvider()
 
     try:
-        asyncio.run(provider.recognize(b"image", "image/png"))
+        asyncio.run(provider.recognize(image_bytes(), "image/png"))
     except HTTPException as exc:
         assert exc.status_code == 502
         assert exc.detail == GLM_OCR_UNAVAILABLE_MESSAGE
@@ -296,7 +314,7 @@ def test_glm_invalid_response_uses_unified_message(monkeypatch, tmp_path):
     provider = GlmOcrProvider()
 
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(provider.recognize(b"image", "image/png"))
+        asyncio.run(provider.recognize(image_bytes(), "image/png"))
     assert exc_info.value.status_code == 502
     assert exc_info.value.detail == GLM_OCR_UNAVAILABLE_MESSAGE
     assert not list(tmp_path.iterdir())
