@@ -1,17 +1,13 @@
 """供云端 AI 短时读取的不可猜测图片文件。"""
 
+import io
 import time
 import uuid
 from pathlib import Path
 
-from app.core.config import settings
+from PIL import Image, ImageOps
 
-CONTENT_EXTENSIONS = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-    "image/bmp": ".bmp",
-}
+from app.core.config import settings
 
 
 def _temp_dir() -> Path:
@@ -29,11 +25,22 @@ def cleanup_expired_files() -> None:
 
 
 def create_temp_image(content: bytes, content_type: str) -> tuple[str, Path]:
+    """将上传图片统一转换为 GLM 支持的标准 JPEG 临时文件。"""
     cleanup_expired_files()
-    extension = CONTENT_EXTENSIONS.get(content_type, ".jpg")
-    filename = f"{uuid.uuid4().hex}{extension}"
+    try:
+        with Image.open(io.BytesIO(content)) as source:
+            image = ImageOps.exif_transpose(source).convert("RGB")
+            output = io.BytesIO()
+            image.save(output, format="JPEG", quality=92, optimize=True)
+            normalized_content = output.getvalue()
+    except (OSError, ValueError) as exc:
+        raise ValueError(
+            f"无法转换图片格式（{content_type or 'unknown'}）"
+        ) from exc
+
+    filename = f"{uuid.uuid4().hex}.jpg"
     path = _temp_dir() / filename
-    path.write_bytes(content)
+    path.write_bytes(normalized_content)
     return filename, path
 
 
