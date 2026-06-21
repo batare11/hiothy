@@ -111,6 +111,8 @@ GLM配置全部位于服务器 `.env`，API Key 不得写入小程序或 Git：
 GLM_OCR_API_KEY=你的APIKey
 GLM_OCR_ENDPOINT=https://open.bigmodel.cn/api/paas/v4/layout_parsing
 GLM_OCR_MODEL=实际模型名称
+# 可选；未开通支持 JSON 输出的文本模型时留空
+GLM_OCR_STRUCTURED_MODEL=
 GLM_OCR_TIMEOUT=60
 OCR_AUTO_MIN_CONFIDENCE=0.85
 ```
@@ -119,6 +121,9 @@ OCR_AUTO_MIN_CONFIDENCE=0.85
 GLM-OCR 图片会在内存中转换为标准 JPEG，并通过 Base64 Data URL 提交到
 官方 `layout_parsing` 文档解析接口，不再依赖公网临时图片地址。旧环境如果仍配置
 `chat/completions`，后端会自动切换到 `layout_parsing`。
+OCR 原文默认由本地规则提取。配置 `GLM_OCR_STRUCTURED_MODEL` 后，才会额外调用
+对应文本模型整理为高压、低压和心率 JSON；模型输出必须能在 OCR 原文中找到对应
+数字，并通过合理范围和高压大于低压校验，否则不会采用。
 
 ## 上线前必须完成
 
