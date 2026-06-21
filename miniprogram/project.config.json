@@ -1,7 +1,12 @@
 {
   "description": "Hiothy 血压健康微信小程序",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "assets"
+      }
+    ],
     "include": []
   },
   "setting": {

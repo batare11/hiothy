@@ -441,7 +441,7 @@
   margin-top: 14rpx;
 }
 
-.datetime-input,
+.datetime-picker,
 .edit-input {
   height: 70rpx;
   margin-top: 8rpx;
@@ -450,6 +450,23 @@
   border: 1rpx solid #E5E6EB;
   border-radius: 12rpx;
   font-size: 24rpx;
+}
+
+.datetime-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  line-height: 70rpx;
+}
+
+.datetime-placeholder {
+  color: #C9CDD4;
+}
+
+.datetime-arrow {
+  color: #86909C;
+  font-size: 32rpx;
 }
 
 .filter-actions,

@@ -39,6 +39,7 @@ Page({
     recordsPageSize: 10,
     recordsTotal: 0,
     recordsTotalPages: 1,
+    recordFilterMaxDate: formatDate(new Date()),
     recordFilters: {
       startTime: "",
       endTime: ""
@@ -263,22 +264,27 @@ Page({
     });
   },
 
-  handleFilterInput(event) {
-    const field = event.currentTarget.dataset.field;
-    this.setData({ [`recordFilters.${field}`]: event.detail.value });
+  changeRecordStartDate(event) {
+    this.setData({ "recordFilters.startTime": event.detail.value });
   },
 
-  normalizeQueryTime(value) {
+  changeRecordEndDate(event) {
+    this.setData({ "recordFilters.endTime": event.detail.value });
+  },
+
+  normalizeQueryTime(value, boundary) {
     const text = String(value || "").trim();
     if (!text) return "";
-    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
-      throw new Error("时间格式应为 YYYY-MM-DD HH:mm:ss");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+      throw new Error("请选择有效日期");
     }
-    const date = new Date(text.replace(" ", "T"));
+    const time = boundary === "end" ? "23:59:59" : "00:00:00";
+    const dateTime = `${text}T${time}`;
+    const date = new Date(dateTime);
     if (Number.isNaN(date.getTime())) {
-      throw new Error("请输入有效时间");
+      throw new Error("请选择有效日期");
     }
-    return text.replace(" ", "T");
+    return dateTime;
   },
 
   queryAllRecords() {
@@ -297,8 +303,14 @@ Page({
     let startTime = "";
     let endTime = "";
     try {
-      startTime = this.normalizeQueryTime(this.data.recordFilters.startTime);
-      endTime = this.normalizeQueryTime(this.data.recordFilters.endTime);
+      startTime = this.normalizeQueryTime(
+        this.data.recordFilters.startTime,
+        "start"
+      );
+      endTime = this.normalizeQueryTime(
+        this.data.recordFilters.endTime,
+        "end"
+      );
       if (startTime && endTime && startTime > endTime) {
         throw new Error("开始时间不能晚于结束时间");
       }

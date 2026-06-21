@@ -182,10 +182,30 @@
       </view>
 
       <view class="record-filter">
-        <view class="filter-label">开始时间</view>
-        <input class="datetime-input" value="{{recordFilters.startTime}}" data-field="startTime" bindinput="handleFilterInput" placeholder="YYYY-MM-DD HH:mm:ss" />
-        <view class="filter-label filter-end-label">结束时间</view>
-        <input class="datetime-input" value="{{recordFilters.endTime}}" data-field="endTime" bindinput="handleFilterInput" placeholder="YYYY-MM-DD HH:mm:ss" />
+        <view class="filter-label">开始日期</view>
+        <picker
+          mode="date"
+          value="{{recordFilters.startTime}}"
+          end="{{recordFilterMaxDate}}"
+          bindchange="changeRecordStartDate"
+        >
+          <view class="datetime-picker {{recordFilters.startTime ? '' : 'datetime-placeholder'}}">
+            {{recordFilters.startTime || "请选择开始日期"}}
+            <text class="datetime-arrow">›</text>
+          </view>
+        </picker>
+        <view class="filter-label filter-end-label">结束日期</view>
+        <picker
+          mode="date"
+          value="{{recordFilters.endTime}}"
+          end="{{recordFilterMaxDate}}"
+          bindchange="changeRecordEndDate"
+        >
+          <view class="datetime-picker {{recordFilters.endTime ? '' : 'datetime-placeholder'}}">
+            {{recordFilters.endTime || "请选择结束日期"}}
+            <text class="datetime-arrow">›</text>
+          </view>
+        </picker>
         <view class="filter-actions">
           <button class="filter-reset-btn" bindtap="resetRecordFilters">重置</button>
           <button class="filter-query-btn" bindtap="queryAllRecords">查询</button>
