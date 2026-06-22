@@ -13,7 +13,7 @@
 .hero-copy {
   flex: 1;
   min-width: 0;
-  padding-right: 22rpx;
+  padding-right: 14rpx;
 }
 
 .hero-title {
@@ -68,7 +68,7 @@
 
 .hero-badge {
   display: flex;
-  min-width: 224rpx;
+  min-width: 258rpx;
   min-height: 88rpx;
   align-items: center;
   padding: 12rpx 14rpx;

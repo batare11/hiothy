@@ -7,6 +7,8 @@ import pytest
 
 from app.core.config import settings
 from app.services.health_report import (
+    AI_REPORT_CONNECTION_MESSAGE,
+    AI_REPORT_TIMEOUT_MESSAGE,
     AI_REPORT_UNAVAILABLE_MESSAGE,
     DEEPSEEK_HEALTH_MODEL,
     build_health_report_payload,
@@ -61,9 +63,19 @@ def test_health_report_payload_contains_profile_records_and_notes():
         "2026-06-22T08:30:00"
     )
     assert len(payload["blood_pressure_records"]) == 2
-    assert payload["blood_pressure_records"][0]["note"] == "服药后测量"
-    assert payload["blood_pressure_records"][1]["note"] == "昨晚熬夜"
-    assert payload["blood_pressure_records"][1]["classification"] == "高血压1级"
+    record_data = payload["blood_pressure_records"]
+    assert record_data["fields"] == [
+        "measured_at",
+        "systolic",
+        "diastolic",
+        "heart_rate",
+        "classification",
+        "note",
+    ]
+    assert len(record_data["rows"]) == 2
+    assert record_data["rows"][0][5] == "服药后测量"
+    assert record_data["rows"][1][5] == "昨晚熬夜"
+    assert record_data["rows"][1][4] == "高血压1级"
 
 
 def test_health_report_uses_only_deepseek_v4_pro(monkeypatch):
@@ -118,6 +130,8 @@ def test_health_report_uses_only_deepseek_v4_pro(monkeypatch):
     assert report.startswith("【健康概览】")
     assert captured["json"]["model"] == DEEPSEEK_HEALTH_MODEL
     assert captured["json"]["model"] == "deepseek-v4-pro"
+    assert captured["json"]["thinking"] == {"type": "disabled"}
+    assert captured["json"]["max_tokens"] == 2200
 
 
 def test_health_report_requires_api_key(monkeypatch):
@@ -138,3 +152,70 @@ def test_health_report_requires_api_key(monkeypatch):
         asyncio.run(generate_health_report(archive, []))
 
     assert exc_info.value.detail == AI_REPORT_UNAVAILABLE_MESSAGE
+
+
+def test_health_report_wraps_timeout(monkeypatch):
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
+
+    class TimeoutClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def post(self, *_args, **_kwargs):
+            raise httpx.ReadTimeout("timed out")
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: TimeoutClient())
+    archive = SimpleNamespace(
+        age=60,
+        gender=1,
+        marital_status=1,
+        height_cm=170,
+        weight_jin=140,
+        smoking=False,
+        drinking=False,
+        staying_up_late=False,
+        note=None,
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        asyncio.run(generate_health_report(archive, [], "timeout-test"))
+
+    assert exc_info.value.status_code == 504
+    assert exc_info.value.detail == AI_REPORT_TIMEOUT_MESSAGE
+
+
+def test_health_report_wraps_connection_error(monkeypatch):
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
+
+    class ConnectionClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def post(self, *_args, **_kwargs):
+            request = httpx.Request("POST", settings.deepseek_endpoint)
+            raise httpx.ConnectError("connection failed", request=request)
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: ConnectionClient())
+    archive = SimpleNamespace(
+        age=60,
+        gender=1,
+        marital_status=1,
+        height_cm=170,
+        weight_jin=140,
+        smoking=False,
+        drinking=False,
+        staying_up_late=False,
+        note=None,
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        asyncio.run(generate_health_report(archive, [], "connect-test"))
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == AI_REPORT_CONNECTION_MESSAGE

@@ -1,5 +1,9 @@
 """个人资料和意见反馈接口。"""
 
+import logging
+import time
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -18,6 +22,7 @@ from app.services.health_report import (
 )
 
 router = APIRouter(tags=["users"])
+logger = logging.getLogger("uvicorn.error")
 
 
 def get_or_create_profile(db: Session, mini_user_id: str) -> UserProfile:
@@ -133,6 +138,9 @@ async def create_health_archive_ai_report(
     mini_user_id: str = Depends(get_mini_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
+    trace_id = uuid.uuid4().hex[:10]
+    started_at = time.perf_counter()
+    logger.info("AI health report [%s] request received", trace_id)
     archive = get_or_create_health_archive(db, mini_user_id)
     required_fields = {
         "年龄": archive.age,
@@ -145,6 +153,11 @@ async def create_health_archive_ai_report(
         label for label, value in required_fields.items() if value is None
     ]
     if missing_fields:
+        logger.warning(
+            "AI health report [%s] rejected: missing archive fields=%s",
+            trace_id,
+            ",".join(missing_fields),
+        )
         raise HTTPException(
             status_code=400,
             detail=(
@@ -157,7 +170,18 @@ async def create_health_archive_ai_report(
         .where(BloodPressureRecord.mini_user_id == mini_user_id)
         .order_by(BloodPressureRecord.created_at.asc())
     ).all()
-    report = await generate_health_report(archive, records)
+    logger.info(
+        "AI health report [%s] data loaded: records=%d elapsed=%.2fs",
+        trace_id,
+        len(records),
+        time.perf_counter() - started_at,
+    )
+    report = await generate_health_report(archive, records, trace_id)
+    logger.info(
+        "AI health report [%s] response ready: total_elapsed=%.2fs",
+        trace_id,
+        time.perf_counter() - started_at,
+    )
     return {
         "code": 0,
         "message": "AI 健康报告生成成功",

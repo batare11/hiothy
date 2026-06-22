@@ -325,7 +325,9 @@ Page({
         try {
           const response = await request({
             url: "/health-archive/ai-report",
-            method: "POST"
+            method: "POST",
+            timeout: 150000,
+            action: "AI 智能分析"
           });
           const data = response.data || {};
           this.setData({
