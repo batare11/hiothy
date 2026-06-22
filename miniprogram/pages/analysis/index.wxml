@@ -3,12 +3,14 @@
     <view class="analysis-header">
       <view>
         <view class="section-title">血压走势图</view>
-        <view class="section-desc">{{trendCaption}}</view>
-      </view>
-      <view class="legend">
-        <text class="legend-dot systolic-dot"></text>高压
-        <text class="legend-dot diastolic-dot"></text>低压
-        <text class="legend-dot heart-dot"></text>心率
+        <view class="trend-meta">
+          <view class="section-desc">{{trendCaption}}</view>
+          <view class="legend">
+            <text class="legend-dot systolic-dot"></text>高压
+            <text class="legend-dot diastolic-dot"></text>低压
+            <text class="legend-dot heart-dot"></text>心率
+          </view>
+        </view>
       </view>
     </view>
 
@@ -31,6 +33,21 @@
         <view class="range-picker">{{endDate}}</view>
       </picker>
       <view class="query-btn" bindtap="loadTrend">查询</view>
+      <view
+        wx:if="{{dimension === 'day'}}"
+        class="today-btn"
+        bindtap="viewCurrentMonthByDay"
+      >当月</view>
+      <view
+        wx:if="{{dimension === 'day'}}"
+        class="today-btn"
+        bindtap="viewTodayTrend"
+      >今天</view>
+      <view
+        wx:if="{{dimension === 'day'}}"
+        class="today-btn"
+        bindtap="resetDayTrend"
+      >重置</view>
     </view>
 
     <view class="summary-grid">
@@ -134,7 +151,13 @@
     </view>
   </view>
 
-  <view wx:if="{{recordsModalVisible}}" class="modal-mask" catchtap="closeRecordsModal">
+  <view
+    wx:if="{{recordsModalVisible}}"
+    class="modal-mask"
+    catchtap="closeRecordsModal"
+    catchtouchmove="noop"
+  >
+    <view class="modal-backdrop"></view>
     <view class="records-modal" catchtap="noop">
       <view class="modal-header">
         <view>

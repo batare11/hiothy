@@ -112,19 +112,37 @@
       </picker>
     </view>
 
-    <view class="form-row note-row">
-      <view class="form-label">备注</view>
-      <input
-        class="note-input"
-        value="{{form.note}}"
-        data-field="note"
-        bindinput="handleInput"
-        placeholder="如：昨晚熬夜、服药后、头晕等"
-      />
-    </view>
-
     <button class="primary-btn submit-btn" loading="{{submitting}}" bindtap="submitRecord">
       确认并保存
     </button>
+  </view>
+
+  <view class="daily-encouragement">
+    <text class="daily-encouragement-mark">“</text>
+    <text class="daily-encouragement-text">{{dailyEncouragement}}</text>
+    <text class="daily-encouragement-mark end">”</text>
+  </view>
+
+  <view
+    wx:if="{{notePromptVisible}}"
+    class="note-modal-mask"
+    bindtap="closeNotePrompt"
+  >
+    <view class="note-modal" catchtap="preventModalClose">
+      <view class="note-modal-title">添加备注</view>
+      <view class="note-modal-tip">如：昨晚熬夜、服药后、头晕等</view>
+      <input
+        class="note-modal-input"
+        value="{{noteDraft}}"
+        bindinput="handleNoteDraftInput"
+        maxlength="100"
+        focus
+        placeholder="可不填"
+      />
+      <view class="note-modal-actions">
+        <button class="note-modal-cancel" bindtap="closeNotePrompt">返回</button>
+        <button class="note-modal-confirm" bindtap="confirmNotePrompt">确认保存</button>
+      </view>
+    </view>
   </view>
 </view>

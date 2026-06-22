@@ -4,19 +4,21 @@ const {
   formatDateTimeSeconds
 } = require("../../utils/date");
 
+const RECORDS_PAGE_SIZE = 10;
+
 function getDefaultTrendRange(dimension) {
   const end = new Date();
   const start = new Date(end);
   const captions = {
     day: "默认展示最近 7 天趋势",
     month: "默认展示最近半年趋势",
-    year: "默认展示最近 3 年趋势"
+    year: "默认展示最近 5 年趋势"
   };
 
   if (dimension === "day") {
     start.setDate(start.getDate() - 6);
   } else if (dimension === "year") {
-    start.setFullYear(start.getFullYear() - 2, 0, 1);
+    start.setFullYear(start.getFullYear() - 4, 0, 1);
   } else {
     start.setDate(1);
     start.setMonth(start.getMonth() - 5);
@@ -39,6 +41,13 @@ function pad(value) {
 }
 
 function buildTrendTimeline(dimension, startDate, endDate, sourcePoints) {
+  if (dimension === "day" && startDate === endDate) {
+    return sourcePoints.map((point) => ({
+      ...point,
+      axisLabel: point.label
+    }));
+  }
+
   const sourceMap = {};
   sourcePoints.forEach((point) => {
     sourceMap[point.label] = point;
@@ -57,17 +66,21 @@ function buildTrendTimeline(dimension, startDate, endDate, sourcePoints) {
     if (dimension === "day") {
       label = formatDate(cursor);
       axisLabel = crossesYear
-        ? label
+        ? `${String(cursor.getFullYear()).slice(-2)}.${pad(
+            cursor.getMonth() + 1
+          )}.${pad(cursor.getDate())}`
         : `${pad(cursor.getMonth() + 1)}-${pad(cursor.getDate())}`;
       cursor.setDate(cursor.getDate() + 1);
     } else if (dimension === "year") {
       label = String(cursor.getFullYear());
-      axisLabel = label;
+      axisLabel = `${label.slice(-2)}年`;
       cursor.setFullYear(cursor.getFullYear() + 1);
     } else {
       label = `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}`;
       axisLabel = crossesYear
-        ? label
+        ? `${String(cursor.getFullYear()).slice(-2)}.${pad(
+            cursor.getMonth() + 1
+          )}`
         : `${pad(cursor.getMonth() + 1)}月`;
       cursor.setMonth(cursor.getMonth() + 1);
     }
@@ -117,7 +130,7 @@ Page({
     allRecordsLoading: false,
     allRecords: [],
     recordsPage: 1,
-    recordsPageSize: 10,
+    recordsPageSize: RECORDS_PAGE_SIZE,
     recordsTotal: 0,
     recordsTotalPages: 1,
     recordFilterMaxDate: formatDate(new Date()),
@@ -174,6 +187,33 @@ Page({
 
   changeEndDate(event) {
     this.setData({ endDate: event.detail.value });
+  },
+
+  viewTodayTrend() {
+    const today = formatDate(new Date());
+    this.setData({
+      dimension: "day",
+      startDate: today,
+      endDate: today
+    }, () => this.loadTrend());
+  },
+
+  viewCurrentMonthByDay() {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    this.setData({
+      dimension: "day",
+      startDate: formatDate(firstDay),
+      endDate: formatDate(lastDay)
+    }, () => this.loadTrend());
+  },
+
+  resetDayTrend() {
+    this.setData({
+      dimension: "day",
+      ...getDefaultTrendRange("day")
+    }, () => this.loadTrend());
   },
 
   async loadTrend() {
@@ -248,6 +288,7 @@ Page({
     this.setData({
       recordsModalVisible: true,
       recordsPage: 1,
+      recordsPageSize: RECORDS_PAGE_SIZE,
       editVisible: false
     }, () => this.loadAllRecords());
   },
@@ -481,8 +522,49 @@ Page({
         : 180;
       const range = Math.max(maxValue - minValue, 1);
 
+      const step = points.length > 1 ? chartWidth / (points.length - 1) : 0;
+      const isSingleDayTimeline = (
+        this.data.dimension === "day" &&
+        this.data.startDate === this.data.endDate
+      );
+      const getPointX = (point, index) => {
+        if (!isSingleDayTimeline) {
+          return padding.left + (
+            points.length === 1 ? chartWidth / 2 : step * index
+          );
+        }
+        const [hour, minute] = String(point.label).split(":").map(Number);
+        const minutes = Math.min(
+          Math.max((hour || 0) * 60 + (minute || 0), 0),
+          24 * 60
+        );
+        return padding.left + (minutes / (24 * 60)) * chartWidth;
+      };
+      const maxLabels = points.length <= 7 ? points.length : 6;
+      const labelIndexes = isSingleDayTimeline
+        ? []
+        : [...new Set(
+            Array.from({ length: maxLabels }, (_, index) => (
+              Math.round(
+                index * (points.length - 1) / Math.max(maxLabels - 1, 1)
+              )
+            ))
+          )];
+      const axisTicks = isSingleDayTimeline
+        ? Array.from({ length: 12 }, (_, index) => ({
+            label: `${pad(index * 2)}:00`,
+            x: padding.left + (index * 2 / 24) * chartWidth
+          }))
+        : labelIndexes.map((index) => ({
+            label: points[index].axisLabel || points[index].label,
+            x: getPointX(points[index], index)
+          }));
+      const axisY = padding.top + chartHeight;
+
+      // 网格先绘制，作为折线和数据点的背景。
       ctx.setStrokeStyle("#E5E6EB");
       ctx.setLineWidth(1);
+      ctx.setLineDash([4, 4], 0);
       ctx.setFontSize(10);
       ctx.setFillStyle("#86909C");
       for (let index = 0; index <= 4; index += 1) {
@@ -494,8 +576,14 @@ Page({
         ctx.stroke();
         ctx.fillText(String(value), 4, y + 3);
       }
+      axisTicks.forEach(({ x }) => {
+        ctx.beginPath();
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, axisY);
+        ctx.stroke();
+      });
+      ctx.setLineDash([], 0);
 
-      const step = points.length > 1 ? chartWidth / (points.length - 1) : 0;
       [
         { field: "systolic", color: "#1677FF" },
         { field: "diastolic", color: "#52C41A" },
@@ -510,9 +598,7 @@ Page({
             drawing = false;
             return;
           }
-          const x = padding.left + (
-            points.length === 1 ? chartWidth / 2 : step * index
-          );
+          const x = getPointX(point, index);
           const y = padding.top + (
             (maxValue - point[field]) / range
           ) * chartHeight;
@@ -535,9 +621,7 @@ Page({
         });
         points.forEach((point, index) => {
           if (point[field] === null || point[field] === undefined) return;
-          const x = padding.left + (
-            points.length === 1 ? chartWidth / 2 : step * index
-          );
+          const x = getPointX(point, index);
           const y = padding.top + (
             (maxValue - point[field]) / range
           ) * chartHeight;
@@ -547,24 +631,23 @@ Page({
         });
       });
 
-      const maxLabels = points.length <= 7 ? points.length : 6;
-      const labelIndexes = [...new Set(
-        Array.from({ length: maxLabels }, (_, index) => (
-          Math.round(index * (points.length - 1) / Math.max(maxLabels - 1, 1))
-        ))
-      )];
+      ctx.setStrokeStyle("#86909C");
+      ctx.setLineWidth(1);
+      axisTicks.forEach(({ x }) => {
+        ctx.beginPath();
+        ctx.moveTo(x, axisY);
+        ctx.lineTo(x, axisY + 5);
+        ctx.stroke();
+      });
       ctx.setFillStyle("#86909C");
       ctx.setFontSize(9);
       ctx.setTextAlign("center");
-      labelIndexes.forEach((index) => {
-        const x = padding.left + (
-          points.length === 1 ? chartWidth / 2 : step * index
-        );
-        ctx.fillText(
-          points[index].axisLabel || points[index].label,
-          x,
-          height - 10
-        );
+      axisTicks.forEach(({ label, x }) => {
+        ctx.save();
+        ctx.translate(x, height - 12);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillText(label, 0, 0);
+        ctx.restore();
       });
       ctx.setTextAlign("left");
       ctx.draw();

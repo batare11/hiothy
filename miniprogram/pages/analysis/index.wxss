@@ -5,7 +5,18 @@
   justify-content: space-between;
 }
 
+.trend-meta {
+  display: flex;
+  align-items: center;
+  margin-top: 6rpx;
+}
+
+.trend-meta .section-desc {
+  margin-top: 0;
+}
+
 .legend {
+  margin-left: 16rpx;
   color: #86909C;
   font-size: 18rpx;
   white-space: nowrap;
@@ -72,6 +83,17 @@
   background: #1677FF;
   border-radius: 10rpx;
   font-size: 22rpx;
+}
+
+.today-btn {
+  margin-left: 10rpx;
+  padding: 11rpx 14rpx;
+  color: #1677FF;
+  background: #E8F3FF;
+  border: 1rpx solid #94C5FF;
+  border-radius: 10rpx;
+  font-size: 20rpx;
+  white-space: nowrap;
 }
 
 .summary-grid {
@@ -300,17 +322,25 @@
   align-items: center;
   justify-content: center;
   padding: 28rpx;
-  background: rgba(0, 0, 0, 0.52);
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.68);
 }
 .records-modal {
   position: relative;
+  z-index: 1;
   display: flex;
   width: 100%;
   max-height: 92vh;
+  overflow: hidden;
   padding: 28rpx;
   flex-direction: column;
   background: #FFFFFF;
   border-radius: 26rpx;
+  box-shadow: 0 24rpx 80rpx rgba(0, 0, 0, 0.28);
+  opacity: 1;
 }
 .modal-header {
   display: flex;
@@ -386,7 +416,11 @@
 .filter-query-btn,
 .edit-save-btn { color: #FFFFFF; background: #0960D8; }
 
-.records-scroll { height: 660rpx; margin-top: 20rpx; }
+.records-scroll {
+  height: 660rpx;
+  margin-top: 20rpx;
+  background: #FFFFFF;
+}
 .modal-empty { padding: 100rpx 20rpx; color: #86909C; text-align: center; }
 .all-record-item {
   margin-bottom: 18rpx;

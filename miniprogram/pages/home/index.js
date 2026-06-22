@@ -6,12 +6,51 @@ const {
 } = require("../../utils/date");
 const { normalizeOcrResult } = require("../../utils/ocr");
 
+const DAILY_ENCOURAGEMENTS = [
+  "认真记录每一次变化，也是在认真照顾自己。",
+  "规律一点点，安心多一点点。",
+  "愿今天的你，平稳、从容、心情舒展。",
+  "照顾好身体，也别忘了照顾好心情。",
+  "每一次记录，都是送给未来自己的安心。",
+  "慢一点没关系，坚持就是很好的进步。",
+  "愿你三餐规律，睡眠安稳，日日心安。",
+  "把日子过得从容些，把自己照顾得周全些。",
+  "今天也要记得喝水、休息，好好爱自己。",
+  "愿清晨有期待，夜晚有好眠，心中有安宁。",
+  "身体需要呵护，心情也值得被温柔安放。",
+  "每一个认真生活的今天，都在积攒明天的安心。",
+  "不用急着赶路，稳稳走好每一步就很好。",
+  "愿你的生活有规律，心里有阳光，身边有温暖。",
+  "好好吃饭，好好睡觉，就是朴素又重要的幸福。",
+  "今天辛苦了，也请给自己一点休息的时间。",
+  "愿你忙而不乱，累而知休，日日自在。",
+  "照顾自己不是任务，是送给自己的温柔。",
+  "愿你的每一天，都比昨天多一点轻松。",
+  "保持记录，也保持对生活的小小期待。",
+  "不必事事完美，身体舒服、内心安稳就很好。",
+  "给身体一点耐心，也给自己一点鼓励。",
+  "愿今天有好心情，也有恰到好处的好状态。",
+  "一点一滴的好习惯，会悄悄带来踏实和安心。",
+  "愿你认真生活，也能轻松生活。",
+  "停下来歇一歇，也是继续向前的一部分。",
+  "愿你所遇皆温柔，所行皆从容。",
+  "每天关心自己一点，生活就会温柔一点。",
+  "愿平安常伴左右，喜乐常在心间。",
+  "愿每一次呼吸都从容，每一个日子都有暖意。"
+];
+
+function getRandomEncouragement() {
+  const index = Math.floor(Math.random() * DAILY_ENCOURAGEMENTS.length);
+  return DAILY_ENCOURAGEMENTS[index];
+}
+
 Page({
   data: {
     imagePath: "",
     ocrLoading: false,
     ocrNotice: "",
     ocrEngine: "rapid",
+    cloudOcrConsent: false,
     ocrEngines: [
       {
         value: "rapid",
@@ -30,13 +69,15 @@ Page({
       }
     ],
     submitting: false,
+    notePromptVisible: false,
+    noteDraft: "",
+    dailyEncouragement: getRandomEncouragement(),
     trendLoading: false,
     form: {
       systolic: "",
       diastolic: "",
       heartRate: "",
-      measuredDate: formatDate(new Date()),
-      note: ""
+      measuredDate: formatDate(new Date())
     },
     dimensions: [
       { label: "按日", value: "day" },
@@ -79,12 +120,20 @@ Page({
   },
 
   onShow() {
+    this.setData({ dailyEncouragement: getRandomEncouragement() });
     const tabBar = this.getTabBar && this.getTabBar();
     if (tabBar) {
       tabBar.setData({ selected: 0 });
       if (tabBar.refreshUnreadCount) tabBar.refreshUnreadCount();
     }
     if (this.data.hasLoaded) this.loadRecords();
+  },
+
+  onHide() {
+    this.setData({
+      ocrEngine: "rapid",
+      cloudOcrConsent: false
+    });
   },
 
   onPullDownRefresh() {
@@ -114,7 +163,7 @@ Page({
         };
     if (
       engine !== "rapid" &&
-      !wx.getStorageSync("doubaoOcrConsent")
+      !this.data.cloudOcrConsent
     ) {
       wx.showModal({
         title: cloudOcrPrompt.title,
@@ -122,8 +171,10 @@ Page({
         confirmText: "确认使用",
         success: ({ confirm }) => {
           if (!confirm) return;
-          wx.setStorageSync("doubaoOcrConsent", true);
-          this.setData({ ocrEngine: engine });
+          this.setData({
+            ocrEngine: engine,
+            cloudOcrConsent: true
+          });
         }
       });
       return;
@@ -208,13 +259,52 @@ Page({
     return "";
   },
 
+  requestRecordNote() {
+    return new Promise((resolve) => {
+      this.notePromptResolver = resolve;
+      this.setData({
+        notePromptVisible: true,
+        noteDraft: ""
+      });
+    });
+  },
+
+  handleNoteDraftInput(event) {
+    this.setData({ noteDraft: event.detail.value });
+  },
+
+  closeNotePrompt() {
+    const resolve = this.notePromptResolver;
+    this.notePromptResolver = null;
+    this.setData({
+      notePromptVisible: false,
+      noteDraft: ""
+    });
+    if (resolve) resolve(null);
+  },
+
+  confirmNotePrompt() {
+    const resolve = this.notePromptResolver;
+    const note = String(this.data.noteDraft || "").trim();
+    this.notePromptResolver = null;
+    this.setData({
+      notePromptVisible: false,
+      noteDraft: ""
+    });
+    if (resolve) resolve(note);
+  },
+
+  preventModalClose() {},
+
   async submitRecord() {
     const message = this.validateForm();
     if (message) {
       wx.showToast({ title: message, icon: "none" });
       return;
     }
-    if (this.data.submitting) return;
+    if (this.data.submitting || this.data.notePromptVisible) return;
+    const note = await this.requestRecordNote();
+    if (note === null) return;
     this.setData({ submitting: true });
     const form = this.data.form;
     try {
@@ -226,7 +316,7 @@ Page({
           diastolic: Number(form.diastolic),
           heart_rate: form.heartRate ? Number(form.heartRate) : null,
           measured_at: `${form.measuredDate}T${new Date().toTimeString().slice(0, 8)}`,
-          note: form.note || null
+          note: note || null
         }
       });
       wx.showToast({ title: response.message || "保存成功", icon: "success" });
@@ -235,8 +325,7 @@ Page({
         ocrNotice: "",
         "form.systolic": "",
         "form.diastolic": "",
-        "form.heartRate": "",
-        "form.note": ""
+        "form.heartRate": ""
       });
       await this.loadRecords();
       const tabBar = this.getTabBar && this.getTabBar();
