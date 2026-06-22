@@ -39,14 +39,85 @@
 }
 
 .hero-export-btn {
-  color: #0960D8;
-  background: #FFFFFF;
+  color: #FFFFFF;
+  background: #1769C2;
+  border: 1rpx solid rgba(255, 255, 255, 0.68);
 }
 
 .hero-ai-btn {
+  position: relative;
+  overflow: hidden;
   color: #FFFFFF;
-  background: rgba(7, 49, 117, 0.42);
-  border: 1rpx solid rgba(255, 255, 255, 0.55);
+  background: linear-gradient(120deg, #5B5BD6, #8B5CF6, #3578E5);
+  background-size: 200% 100%;
+  border: 1rpx solid rgba(255, 255, 255, 0.68);
+  box-shadow:
+    0 6rpx 16rpx rgba(64, 58, 190, 0.3),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.28);
+  animation: ai-button-gradient 3s ease-in-out infinite;
+}
+
+.hero-ai-btn::after {
+  position: absolute;
+  top: -20%;
+  left: -45%;
+  width: 34%;
+  height: 140%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.52),
+    transparent
+  );
+  content: "";
+  transform: skewX(-18deg);
+  animation: ai-button-shine 2.8s ease-in-out infinite;
+}
+
+.hero-ai-btn:active {
+  transform: scale(0.98);
+  filter: brightness(0.94);
+}
+
+.hero-ai-icon {
+  margin-right: 8rpx;
+  color: #FFF4A8;
+  font-size: 29rpx;
+  line-height: 1;
+  text-shadow: 0 0 10rpx rgba(255, 245, 164, 0.7);
+  animation: ai-icon-twinkle 1.5s ease-in-out infinite;
+}
+
+@keyframes ai-button-gradient {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes ai-button-shine {
+  0%,
+  55% {
+    left: -45%;
+  }
+  100% {
+    left: 125%;
+  }
+}
+
+@keyframes ai-icon-twinkle {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.9) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.16) rotate(15deg);
+  }
 }
 
 .stats-grid {

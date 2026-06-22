@@ -10,7 +10,10 @@
         class="hero-ai-btn"
         loading="{{aiReportLoading}}"
         bindtap="generateAiHealthReport"
-      >AI 智能分析</button>
+      >
+        <text class="hero-ai-icon">✦</text>
+        <text>AI 智能分析</text>
+      </button>
     </view>
   </view>
 
