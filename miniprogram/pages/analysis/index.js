@@ -4,6 +4,8 @@ const {
   formatDateTimeSeconds
 } = require("../../utils/date");
 
+const RECORDS_PAGE_SIZE = 10;
+
 function getDefaultTrendRange(dimension) {
   const end = new Date();
   const start = new Date(end);
@@ -128,7 +130,7 @@ Page({
     allRecordsLoading: false,
     allRecords: [],
     recordsPage: 1,
-    recordsPageSize: 10,
+    recordsPageSize: RECORDS_PAGE_SIZE,
     recordsTotal: 0,
     recordsTotalPages: 1,
     recordFilterMaxDate: formatDate(new Date()),
@@ -286,6 +288,7 @@ Page({
     this.setData({
       recordsModalVisible: true,
       recordsPage: 1,
+      recordsPageSize: RECORDS_PAGE_SIZE,
       editVisible: false
     }, () => this.loadAllRecords());
   },

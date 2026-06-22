@@ -151,7 +151,13 @@
     </view>
   </view>
 
-  <view wx:if="{{recordsModalVisible}}" class="modal-mask" catchtap="closeRecordsModal">
+  <view
+    wx:if="{{recordsModalVisible}}"
+    class="modal-mask"
+    catchtap="closeRecordsModal"
+    catchtouchmove="noop"
+  >
+    <view class="modal-backdrop"></view>
     <view class="records-modal" catchtap="noop">
       <view class="modal-header">
         <view>

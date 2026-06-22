@@ -365,17 +365,116 @@
   color: #1677FF;
 }
 
-.note-row {
-  align-items: center;
-}
-
-.note-input {
-  width: 440rpx;
-  text-align: right;
-}
-
 .submit-btn {
   margin-top: 28rpx;
+}
+
+.daily-encouragement {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  margin: 26rpx 18rpx 10rpx;
+  padding: 18rpx 24rpx;
+  color: #6B778C;
+  text-align: center;
+}
+
+.daily-encouragement-text {
+  max-width: 560rpx;
+  font-size: 22rpx;
+  line-height: 34rpx;
+}
+
+.daily-encouragement-mark {
+  margin-right: 6rpx;
+  color: #94C5FF;
+  font-size: 32rpx;
+  line-height: 30rpx;
+}
+
+.daily-encouragement-mark.end {
+  margin: 4rpx 0 0 6rpx;
+}
+
+.note-modal-mask {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.note-modal {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 600rpx;
+  padding: 28rpx;
+  background: #FFFFFF;
+  border-radius: 22rpx;
+}
+
+.note-modal-title {
+  color: #1D2129;
+  font-size: 30rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.note-modal-tip {
+  margin-top: 10rpx;
+  overflow: hidden;
+  color: #86909C;
+  font-size: 19rpx;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-modal-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 68rpx;
+  margin-top: 20rpx;
+  padding: 0 18rpx;
+  color: #1D2129;
+  background: #F7F8FA;
+  border: 1rpx solid #E5E6EB;
+  border-radius: 12rpx;
+  font-size: 23rpx;
+}
+
+.note-modal-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 22rpx;
+}
+
+.note-modal-cancel,
+.note-modal-confirm {
+  display: flex;
+  height: 68rpx;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12rpx;
+  font-size: 23rpx;
+  line-height: 1;
+  text-align: center;
+}
+
+.note-modal-cancel {
+  flex: 3;
+  color: #4E5969;
+  background: #F2F3F5;
+}
+
+.note-modal-confirm {
+  flex: 5;
+  color: #FFFFFF;
+  background: #1677FF;
 }
 
 .analysis-header,
