@@ -248,4 +248,13 @@
       <button class="ai-report-copy" bindtap="copyAiReport">复制报告</button>
     </view>
   </view>
+
+  <view wx:if="{{aiReportLoading}}" class="ai-loading-mask">
+    <view class="ai-loading-card">
+      <view class="ai-loading-spinner"></view>
+      <view class="ai-loading-title">AI 正在分析健康档案</view>
+      <view class="ai-loading-desc">正在整理全部历史数据与测量备注</view>
+      <view class="ai-loading-tip">报告生成可能需要 1～2 分钟，请耐心等待</view>
+    </view>
+  </view>
 </view>

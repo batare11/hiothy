@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from datetime import datetime
 
 import httpx
@@ -12,10 +13,12 @@ from app.models.blood_pressure import BloodPressureRecord
 from app.models.health_archive import HealthArchive
 from app.services.health import classify_pressure_detail
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 DEEPSEEK_HEALTH_MODEL = "deepseek-v4-pro"
 AI_REPORT_UNAVAILABLE_MESSAGE = "AI 健康分析暂不可用，请稍后重试"
+AI_REPORT_TIMEOUT_MESSAGE = "AI 健康分析响应超时，请稍后重试"
+AI_REPORT_CONNECTION_MESSAGE = "暂时无法连接 AI 健康分析服务，请稍后重试"
 
 SYSTEM_PROMPT = """你是一名严谨的健康数据归纳助手。
 请完整阅读用户使用小程序期间的全部历史测量数据和个人档案，生成一份便于医生快速了解该人员整体情况的中文健康数据报告。
@@ -72,18 +75,18 @@ def build_health_report_payload(
 ) -> dict:
     sorted_records = sorted(records, key=lambda record: record.created_at)
     bmi = calculate_bmi_profile(archive.height_cm, archive.weight_jin)
-    record_items = [
-        {
-            "measured_at": item.created_at.isoformat(timespec="seconds"),
-            "systolic": item.systolic,
-            "diastolic": item.diastolic,
-            "heart_rate": item.heart_rate,
-            "classification": classify_pressure_detail(
+    record_rows = [
+        [
+            item.created_at.isoformat(timespec="minutes"),
+            item.systolic,
+            item.diastolic,
+            item.heart_rate,
+            classify_pressure_detail(
                 item.systolic,
                 item.diastolic,
             )["status_text"],
-            "note": item.note or "",
-        }
+            item.note or "",
+        ]
         for item in sorted_records
     ]
     return {
@@ -99,7 +102,7 @@ def build_health_report_payload(
                 if sorted_records
                 else None
             ),
-            "record_count": len(record_items),
+            "record_count": len(record_rows),
             "record_days": len(
                 {item.created_at.date() for item in sorted_records}
             ),
@@ -134,24 +137,51 @@ def build_health_report_payload(
             ),
             "additional_notes": archive.note or "",
         },
-        "blood_pressure_records": record_items,
+        "blood_pressure_records": {
+            "fields": [
+                "measured_at",
+                "systolic",
+                "diastolic",
+                "heart_rate",
+                "classification",
+                "note",
+            ],
+            "rows": record_rows,
+        },
     }
 
 
 async def generate_health_report(
     archive: HealthArchive,
     records: list[BloodPressureRecord],
+    trace_id: str = "-",
 ) -> str:
+    started_at = time.perf_counter()
     if not settings.deepseek_api_key:
-        logger.warning("DeepSeek health report unavailable: API key missing")
+        logger.warning(
+            "AI health report [%s] unavailable: DeepSeek API key missing",
+            trace_id,
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=AI_REPORT_UNAVAILABLE_MESSAGE,
         )
 
     payload = build_health_report_payload(archive, records)
+    serialized_payload = json.dumps(payload, ensure_ascii=False)
+    logger.info(
+        "AI health report [%s] DeepSeek request starting: "
+        "model=%s records=%d record_days=%d payload_chars=%d timeout=%ss",
+        trace_id,
+        DEEPSEEK_HEALTH_MODEL,
+        payload["data_scope"]["record_count"],
+        payload["data_scope"]["record_days"],
+        len(serialized_payload),
+        settings.deepseek_timeout,
+    )
     request_payload = {
         "model": DEEPSEEK_HEALTH_MODEL,
+        "thinking": {"type": "disabled"},
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {
@@ -160,12 +190,12 @@ async def generate_health_report(
                     "以下 JSON 包含该用户在小程序使用期间的全部历史"
                     "血压、心率、每次测量备注和基础档案。请逐条分析，"
                     "生成便于医生整体、多维度掌握情况的报告：\n"
-                    f"{json.dumps(payload, ensure_ascii=False)}"
+                    f"{serialized_payload}"
                 ),
             },
         ],
         "temperature": 0.2,
-        "max_tokens": 3200,
+        "max_tokens": 2200,
         "stream": False,
     }
     try:
@@ -183,14 +213,52 @@ async def generate_health_report(
                 json=request_payload,
             )
             response.raise_for_status()
-            response_payload = response.json()
+        response_payload = response.json()
         report = response_payload["choices"][0]["message"]["content"]
         if not isinstance(report, str) or not report.strip():
             raise ValueError("DeepSeek response report is empty")
+        usage = response_payload.get("usage") or {}
+        logger.info(
+            "AI health report [%s] completed: elapsed=%.2fs "
+            "report_chars=%d prompt_tokens=%s completion_tokens=%s",
+            trace_id,
+            time.perf_counter() - started_at,
+            len(report.strip()),
+            usage.get("prompt_tokens", "-"),
+            usage.get("completion_tokens", "-"),
+        )
         return report.strip()
+    except httpx.TimeoutException as exc:
+        logger.error(
+            "AI health report [%s] DeepSeek timeout: elapsed=%.2fs "
+            "type=%s detail=%s",
+            trace_id,
+            time.perf_counter() - started_at,
+            type(exc).__name__,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=AI_REPORT_TIMEOUT_MESSAGE,
+        ) from exc
+    except httpx.ConnectError as exc:
+        logger.error(
+            "AI health report [%s] DeepSeek connection failed: "
+            "elapsed=%.2fs detail=%s",
+            trace_id,
+            time.perf_counter() - started_at,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=AI_REPORT_CONNECTION_MESSAGE,
+        ) from exc
     except httpx.HTTPStatusError as exc:
         logger.warning(
-            "DeepSeek health report HTTP error: %s %s",
+            "AI health report [%s] DeepSeek HTTP error: "
+            "elapsed=%.2fs status=%s response=%s",
+            trace_id,
+            time.perf_counter() - started_at,
             exc.response.status_code,
             exc.response.text[:500],
         )
@@ -201,8 +269,10 @@ async def generate_health_report(
     except HTTPException:
         raise
     except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
-        logger.warning(
-            "DeepSeek health report failed: %s: %s",
+        logger.exception(
+            "AI health report [%s] failed: elapsed=%.2fs type=%s detail=%s",
+            trace_id,
+            time.perf_counter() - started_at,
             type(exc).__name__,
             exc,
         )

@@ -48,7 +48,7 @@ function sendRequest(options, token) {
       url: `${BASE_URL}${options.url}`,
       method: options.method || "GET",
       data: options.data || {},
-      timeout: REQUEST_TIMEOUT,
+      timeout: options.timeout || REQUEST_TIMEOUT,
       header: {
         "content-type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -65,7 +65,9 @@ function sendRequest(options, token) {
         reject(error);
       },
       fail(error) {
-        reject(new Error(getNetworkErrorMessage(error)));
+        reject(new Error(
+          getNetworkErrorMessage(error, options.action || "请求")
+        ));
       }
     });
   });

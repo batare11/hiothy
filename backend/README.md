@@ -142,6 +142,9 @@ DOUBAO_TIMEOUT=60
 ## 上线前必须完成
 
 1. 使用 Nginx 配置 HTTPS，将 `https://hiothy.cn/api/v1` 代理到 `127.0.0.1:5000/api/v1`。
+   AI 健康报告可能需要较长生成时间，API 代理应设置
+   `proxy_connect_timeout 30s; proxy_send_timeout 180s;`
+   和 `proxy_read_timeout 180s;`，避免 Nginx 提前断开。
 2. 用 Alembic 管理生产数据库迁移。
 3. 为登录和 OCR 接口增加访问频率限制、结构化日志和备份策略。
 4. 血压判定仅作健康提示，不应替代医生诊断。
