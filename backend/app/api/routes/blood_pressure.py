@@ -22,6 +22,26 @@ from app.services.notifications import sync_pressure_notifications
 router = APIRouter(prefix="/blood-pressure", tags=["blood-pressure"])
 
 
+def build_single_day_trend_points(
+    records: list[BloodPressureRecord],
+) -> list[dict]:
+    """保留同一天每条测量记录的真实时间位置。"""
+    return [
+        {
+            "label": record.created_at.strftime("%H:%M"),
+            "systolic": float(record.systolic),
+            "diastolic": float(record.diastolic),
+            "heart_rate": (
+                float(record.heart_rate)
+                if record.heart_rate is not None
+                else None
+            ),
+            "count": 1,
+        }
+        for record in sorted(records, key=lambda item: item.created_at)
+    ]
+
+
 def serialize_record(record: BloodPressureRecord) -> dict:
     classification = classify_pressure_detail(
         record.systolic, record.diastolic
@@ -266,6 +286,9 @@ def trend(
 ) -> dict:
     end = end_date or datetime.now()
     start = start_date or (end - timedelta(days=365))
+    use_measurement_time_points = (
+        dimension == "day" and start.date() == end.date()
+    )
     formats = {
         "day": ("day", "YYYY-MM-DD"),
         "month": ("month", "YYYY-MM"),
@@ -274,22 +297,27 @@ def trend(
     trunc_unit, label_format = formats[dimension]
     bucket = func.date_trunc(trunc_unit, BloodPressureRecord.created_at)
     label = func.to_char(bucket, label_format)
-    rows = db.execute(
-        select(
-            label.label("label"),
-            func.round(func.avg(BloodPressureRecord.systolic), 1),
-            func.round(func.avg(BloodPressureRecord.diastolic), 1),
-            func.round(func.avg(BloodPressureRecord.heart_rate), 1),
-            func.count(BloodPressureRecord.id),
+    rows = (
+        []
+        if use_measurement_time_points
+        else db.execute(
+            select(
+                label.label("label"),
+                func.round(func.avg(BloodPressureRecord.systolic), 1),
+                func.round(func.avg(BloodPressureRecord.diastolic), 1),
+                func.round(func.avg(BloodPressureRecord.heart_rate), 1),
+                func.count(BloodPressureRecord.id),
+            )
+            .where(
+                BloodPressureRecord.mini_user_id == mini_user_id,
+                BloodPressureRecord.created_at >= start,
+                BloodPressureRecord.created_at <= end,
+            )
+            .group_by(bucket)
+            .order_by(bucket)
         )
-        .where(
-            BloodPressureRecord.mini_user_id == mini_user_id,
-            BloodPressureRecord.created_at >= start,
-            BloodPressureRecord.created_at <= end,
-        )
-        .group_by(bucket)
-        .order_by(bucket)
-    ).all()
+        .all()
+    )
     records = db.scalars(
         select(BloodPressureRecord)
         .where(
@@ -324,23 +352,33 @@ def trend(
         if records
         else None
     )
+    points = (
+        build_single_day_trend_points(records)
+        if use_measurement_time_points
+        else [
+            {
+                "label": row[0],
+                "systolic": float(row[1]) if row[1] is not None else None,
+                "diastolic": float(row[2]) if row[2] is not None else None,
+                "heart_rate": float(row[3]) if row[3] is not None else None,
+                "count": row[4],
+            }
+            for row in rows
+        ]
+    )
     return {
         "code": 0,
         "message": "success",
         "data": {
             "dimension": dimension,
+            "granularity": (
+                "measurement_time"
+                if use_measurement_time_points
+                else dimension
+            ),
             "start_date": start,
             "end_date": end,
-            "points": [
-                {
-                    "label": row[0],
-                    "systolic": float(row[1]) if row[1] is not None else None,
-                    "diastolic": float(row[2]) if row[2] is not None else None,
-                    "heart_rate": float(row[3]) if row[3] is not None else None,
-                    "count": row[4],
-                }
-                for row in rows
-            ],
+            "points": points,
             "summary": {
                 "total": total,
                 "avg_systolic": avg([item.systolic for item in records]),

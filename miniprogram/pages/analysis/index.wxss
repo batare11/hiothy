@@ -5,7 +5,18 @@
   justify-content: space-between;
 }
 
+.trend-meta {
+  display: flex;
+  align-items: center;
+  margin-top: 6rpx;
+}
+
+.trend-meta .section-desc {
+  margin-top: 0;
+}
+
 .legend {
+  margin-left: 16rpx;
   color: #86909C;
   font-size: 18rpx;
   white-space: nowrap;
@@ -72,6 +83,17 @@
   background: #1677FF;
   border-radius: 10rpx;
   font-size: 22rpx;
+}
+
+.today-btn {
+  margin-left: 10rpx;
+  padding: 11rpx 14rpx;
+  color: #1677FF;
+  background: #E8F3FF;
+  border: 1rpx solid #94C5FF;
+  border-radius: 10rpx;
+  font-size: 20rpx;
+  white-space: nowrap;
 }
 
 .summary-grid {
