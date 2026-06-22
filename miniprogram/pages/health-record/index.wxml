@@ -4,7 +4,14 @@
     <view class="archive-desc">
       生成结构化健康摘要，可复制后发送给医生或家人
     </view>
-    <button class="hero-export-btn" bindtap="copyMedicalSummary">复制就诊摘要</button>
+    <view class="hero-action-row">
+      <button class="hero-export-btn" bindtap="copyMedicalSummary">生成静态信息</button>
+      <button
+        class="hero-ai-btn"
+        loading="{{aiReportLoading}}"
+        bindtap="generateAiHealthReport"
+      >AI 智能分析</button>
+    </view>
   </view>
 
   <view wx:if="{{loading}}" class="loading">健康档案加载中...</view>
@@ -12,20 +19,20 @@
   <block wx:else>
     <view class="stats-grid">
       <view class="stat-card">
+        <view class="stat-value">{{overview.record_days || 0}}</view>
+        <view class="stat-label">累计记录天数</view>
+      </view>
+      <view class="stat-card">
         <view class="stat-value">{{overview.total || 0}}</view>
-        <view class="stat-label">累计记录</view>
+        <view class="stat-label">累计记录次数</view>
       </view>
       <view class="stat-card">
         <view class="stat-value normal-value">{{overview.normal_rate || 0}}%</view>
         <view class="stat-label">指标正常率</view>
       </view>
       <view class="stat-card">
-        <view class="stat-value warning-value">{{overview.abnormal_count || 0}}</view>
-        <view class="stat-label">异常记录</view>
-      </view>
-      <view class="stat-card">
-        <view class="stat-value">{{overview.monthly.length || 0}}</view>
-        <view class="stat-label">近年有记录月份</view>
+        <view class="stat-value warning-value">{{overview.abnormal_rate || 0}}%</view>
+        <view class="stat-label">指标异常率</view>
       </view>
     </view>
 
@@ -35,18 +42,36 @@
           <view class="section-title">最近一次测量</view>
           <view class="section-desc">{{overview.latestTime || "暂无测量记录"}}</view>
         </view>
-        <view wx:if="{{overview.latest}}" class="latest-status status-{{overview.latest.status}}">
-          {{overview.latest.status_text}}
+        <view wx:if="{{overview.latest}}" class="latest-status-group">
+          <view class="latest-status status-{{overview.latest.status}}">
+            {{overview.latest.status_text}}
+          </view>
+          <view
+            wx:if="{{bmi.value}}"
+            class="latest-status bmi-status bmi-status-{{bmi.status}}"
+          >{{bmi.label}}</view>
         </view>
       </view>
       <view wx:if="{{overview.latest}}" class="latest-values">
-        <view class="latest-main">
-          <text class="latest-pressure">{{overview.latest.systolic}}/{{overview.latest.diastolic}}</text>
-          <text class="latest-unit">mmHg</text>
+        <view class="latest-reading">
+          <view class="latest-main">
+            <text class="latest-pressure">{{overview.latest.systolic}}/{{overview.latest.diastolic}}</text>
+            <text class="latest-unit">mmHg</text>
+          </view>
+          <view class="latest-heart">心率 {{overview.latest.heart_rate || "--"}} 次/分</view>
         </view>
-        <view class="latest-heart">心率 {{overview.latest.heart_rate || "--"}} 次/分</view>
+        <view class="bmi-summary">
+          <text class="bmi-label">BMI</text>
+          <text class="bmi-value">{{bmi.value || "--"}}</text>
+        </view>
       </view>
-      <view wx:else class="empty-state">还没有血压记录</view>
+      <view wx:else class="empty-state">
+        <view>还没有血压记录</view>
+        <view class="empty-bmi">
+          BMI {{bmi.value || "--"}}
+          <text class="bmi-status bmi-status-{{bmi.status}}">{{bmi.label}}</text>
+        </view>
+      </view>
     </view>
 
     <view class="card">
@@ -202,4 +227,25 @@
       健康档案用于记录与趋势参考，不替代医生诊断。血压严重异常或身体不适时请及时就医。
     </view>
   </block>
+
+  <view
+    wx:if="{{aiReportVisible}}"
+    class="ai-report-mask"
+    bindtap="closeAiReport"
+  >
+    <view class="ai-report-modal" catchtap="preventModalClose">
+      <view class="ai-report-header">
+        <view>
+          <view class="ai-report-title">AI 健康报告</view>
+          <view class="ai-report-model">{{aiReportModel}}</view>
+        </view>
+        <view class="ai-report-close" bindtap="closeAiReport">×</view>
+      </view>
+      <scroll-view class="ai-report-scroll" scroll-y>
+        <text class="ai-report-content" selectable>{{aiReport}}</text>
+      </scroll-view>
+      <view class="ai-report-notice">报告仅供健康管理参考，不作为医疗诊断依据</view>
+      <button class="ai-report-copy" bindtap="copyAiReport">复制报告</button>
+    </view>
+  </view>
 </view>

@@ -298,6 +298,10 @@ Page({
     this.setData({
       recordsModalVisible: false,
       editVisible: false
+    }, () => {
+      wx.nextTick(() => {
+        if (this.data.trendPoints.length) this.drawChart();
+      });
     });
   },
 

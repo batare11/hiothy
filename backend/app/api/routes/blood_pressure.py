@@ -22,6 +22,60 @@ from app.services.notifications import sync_pressure_notifications
 router = APIRouter(prefix="/blood-pressure", tags=["blood-pressure"])
 
 
+def calculate_overview_stats(
+    records: list[BloodPressureRecord],
+) -> dict:
+    total = len(records)
+    normal_count = sum(
+        classify_pressure(item.systolic, item.diastolic)[0] == "normal"
+        for item in records
+    )
+    abnormal_count = total - normal_count
+    return {
+        "total": total,
+        "record_days": len({item.created_at.date() for item in records}),
+        "normal_count": normal_count,
+        "abnormal_count": abnormal_count,
+        "normal_rate": (
+            round(normal_count / total * 100, 1) if total else 0
+        ),
+        "abnormal_rate": (
+            round(abnormal_count / total * 100, 1) if total else 0
+        ),
+    }
+
+
+def calculate_period_stats(
+    records: list[BloodPressureRecord],
+) -> dict:
+    total = len(records)
+    normal_count = sum(
+        classify_pressure(item.systolic, item.diastolic)[0] == "normal"
+        for item in records
+    )
+    abnormal_count = total - normal_count
+
+    def average(values: list[int]) -> float | None:
+        return round(sum(values) / len(values), 1) if values else None
+
+    return {
+        "total": total,
+        "normal_count": normal_count,
+        "abnormal_count": abnormal_count,
+        "normal_rate": (
+            round(normal_count / total * 100, 1) if total else 0
+        ),
+        "abnormal_rate": (
+            round(abnormal_count / total * 100, 1) if total else 0
+        ),
+        "avg_systolic": average([item.systolic for item in records]),
+        "avg_diastolic": average([item.diastolic for item in records]),
+        "avg_heart_rate": average(
+            [item.heart_rate for item in records if item.heart_rate]
+        ),
+    }
+
+
 def build_single_day_trend_points(
     records: list[BloodPressureRecord],
 ) -> list[dict]:
@@ -149,12 +203,15 @@ def health_archive_overview(
         .where(BloodPressureRecord.mini_user_id == mini_user_id)
         .order_by(BloodPressureRecord.created_at.desc())
     ).all()
-    total = len(records)
-    normal_count = sum(
-        classify_pressure(item.systolic, item.diastolic)[0] == "normal"
+    stats = calculate_overview_stats(records)
+    today = datetime.now().date()
+    week_start = today - timedelta(days=6)
+    recent_7_days_records = [
+        item
         for item in records
-    )
-    abnormal_count = total - normal_count
+        if week_start <= item.created_at.date() <= today
+    ]
+    recent_7_days = calculate_period_stats(recent_7_days_records)
     avg = lambda values: round(sum(values) / len(values), 1) if values else None
 
     end = datetime.now()
@@ -188,15 +245,12 @@ def health_archive_overview(
         default=None,
     )
     latest = serialize_record(records[0]) if records else None
-    normal_rate = round(normal_count / total * 100, 1) if total else 0
     return {
         "code": 0,
         "message": "success",
         "data": {
-            "total": total,
-            "normal_count": normal_count,
-            "abnormal_count": abnormal_count,
-            "normal_rate": normal_rate,
+            **stats,
+            "recent_7_days": recent_7_days,
             "first_record_at": first_record_at,
             "latest": latest,
             "averages": {

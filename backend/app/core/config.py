@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     )
     doubao_model: str = ""
     doubao_timeout: int = 60
+    deepseek_api_key: str = ""
+    deepseek_endpoint: str = "https://api.deepseek.com/chat/completions"
+    deepseek_timeout: int = 90
     ocr_auto_min_confidence: float = 0.85
     ocr_temp_dir: str = "uploads/ocr-temp"
     ocr_temp_file_ttl: int = 300

@@ -1,16 +1,21 @@
 """个人资料和意见反馈接口。"""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_mini_user_id
 from app.core.database import get_db
 from app.models.feedback import Feedback
+from app.models.blood_pressure import BloodPressureRecord
 from app.models.health_archive import HealthArchive
 from app.models.user_profile import UserProfile
 from app.schemas.user import FeedbackCreate, HealthArchiveUpdate, UserProfileUpdate
 from app.services.auth import public_user_id
+from app.services.health_report import (
+    DEEPSEEK_HEALTH_MODEL,
+    generate_health_report,
+)
 
 router = APIRouter(tags=["users"])
 
@@ -120,6 +125,47 @@ def update_health_archive(
         "code": 0,
         "message": "辅助档案保存成功",
         "data": serialize_health_archive(archive),
+    }
+
+
+@router.post("/health-archive/ai-report")
+async def create_health_archive_ai_report(
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    archive = get_or_create_health_archive(db, mini_user_id)
+    required_fields = {
+        "年龄": archive.age,
+        "身高": archive.height_cm,
+        "体重": archive.weight_jin,
+        "性别": archive.gender,
+        "婚姻状态": archive.marital_status,
+    }
+    missing_fields = [
+        label for label, value in required_fields.items() if value is None
+    ]
+    if missing_fields:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"请先补充并保存{ '、'.join(missing_fields) }"
+                "后再生成 AI 健康报告"
+            ),
+        )
+    records = db.scalars(
+        select(BloodPressureRecord)
+        .where(BloodPressureRecord.mini_user_id == mini_user_id)
+        .order_by(BloodPressureRecord.created_at.asc())
+    ).all()
+    report = await generate_health_report(archive, records)
+    return {
+        "code": 0,
+        "message": "AI 健康报告生成成功",
+        "data": {
+            "model": DEEPSEEK_HEALTH_MODEL,
+            "report": report,
+            "record_count": len(records),
+        },
     }
 
 

@@ -36,13 +36,13 @@
       <view
         wx:if="{{dimension === 'day'}}"
         class="today-btn"
-        bindtap="viewCurrentMonthByDay"
-      >当月</view>
+        bindtap="viewTodayTrend"
+      >今天</view>
       <view
         wx:if="{{dimension === 'day'}}"
         class="today-btn"
-        bindtap="viewTodayTrend"
-      >今天</view>
+        bindtap="viewCurrentMonthByDay"
+      >当月</view>
       <view
         wx:if="{{dimension === 'day'}}"
         class="today-btn"
@@ -70,7 +70,11 @@
     </view>
 
     <view class="chart-wrap">
-      <canvas canvas-id="trendChart" class="trend-chart"></canvas>
+      <canvas
+        wx:if="{{!recordsModalVisible}}"
+        canvas-id="trendChart"
+        class="trend-chart"
+      ></canvas>
       <view wx:if="{{!trendLoading && !hasTrendData}}" class="chart-empty">
         暂无趋势数据，先记录一次血压吧
       </view>
