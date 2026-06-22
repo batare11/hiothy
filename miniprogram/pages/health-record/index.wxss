@@ -1,36 +1,52 @@
 .archive-hero {
   position: relative;
-  margin: 8rpx 0 24rpx;
-  padding: 36rpx 32rpx;
+  margin: 4rpx 0 18rpx;
+  padding: 24rpx 28rpx;
   color: #FFFFFF;
   background: linear-gradient(135deg, #0960D8, #58A5FF);
   border-radius: 24rpx;
 }
 
 .archive-title {
-  font-size: 38rpx;
+  font-size: 34rpx;
   font-weight: 600;
 }
 
 .archive-desc {
-  margin-top: 12rpx;
+  margin-top: 6rpx;
   color: rgba(255, 255, 255, 0.82);
+  font-size: 21rpx;
+}
+
+.hero-action-row {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.hero-export-btn,
+.hero-ai-btn {
+  display: flex;
+  height: 64rpx;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  border-radius: 14rpx;
   font-size: 23rpx;
+  font-weight: 600;
+  line-height: 64rpx;
 }
 
 .hero-export-btn {
-  display: flex;
-  width: 100%;
-  height: 76rpx;
-  margin-top: 24rpx;
-  align-items: center;
-  justify-content: center;
   color: #0960D8;
   background: #FFFFFF;
-  border-radius: 14rpx;
-  font-size: 26rpx;
-  font-weight: 600;
-  line-height: 76rpx;
+}
+
+.hero-ai-btn {
+  color: #FFFFFF;
+  background: rgba(7, 49, 117, 0.42);
+  border: 1rpx solid rgba(255, 255, 255, 0.55);
 }
 
 .stats-grid {
@@ -79,6 +95,18 @@
   font-size: 21rpx;
 }
 
+.latest-status-group {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.latest-status-group .bmi-status {
+  margin-left: 0;
+  padding: 8rpx 14rpx;
+  font-size: 21rpx;
+}
+
 .status-normal {
   color: #389E0D;
   background: #F6FFED;
@@ -105,10 +133,18 @@
 }
 
 .latest-values {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
   margin-top: 28rpx;
   padding: 26rpx;
   background: #E8F3FF;
   border-radius: 18rpx;
+}
+
+.latest-reading {
+  min-width: 0;
+  flex: 1;
 }
 
 .latest-main {
@@ -129,8 +165,71 @@
 }
 
 .latest-heart {
-  margin-top: 8rpx;
   color: #FA8C16;
+}
+
+.bmi-summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 72rpx;
+  padding-left: 16rpx;
+  border-left: 1rpx solid #C9E2FF;
+  color: #4E5969;
+  font-size: 23rpx;
+}
+
+.bmi-label {
+  color: #86909C;
+  font-size: 25rpx;
+  font-weight: 500;
+}
+
+.bmi-value {
+  margin-left: 10rpx;
+  color: #1677FF;
+  font-size: 42rpx;
+  font-weight: 600;
+}
+
+.bmi-status {
+  margin-left: 8rpx;
+  padding: 3rpx 9rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+}
+
+.bmi-status-missing {
+  color: #1677FF;
+  background: #E8F3FF;
+}
+
+.bmi-status-low {
+  color: #096DD9;
+  background: #E6F7FF;
+}
+
+.bmi-status-normal {
+  color: #389E0D;
+  background: #F6FFED;
+}
+
+.bmi-status-elevated {
+  color: #AD6800;
+  background: #FFFBE6;
+}
+
+.bmi-status-danger {
+  color: #CF1322;
+  background: #FFF1F0;
+}
+
+.empty-bmi {
+  margin-top: 14rpx;
+  color: #4E5969;
+  font-size: 22rpx;
 }
 
 .average-row {
@@ -320,4 +419,90 @@
   font-size: 21rpx;
   line-height: 1.7;
   text-align: center;
+}
+
+.ai-report-mask {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30rpx;
+  background: rgba(17, 24, 39, 0.68);
+}
+
+.ai-report-modal {
+  display: flex;
+  width: 100%;
+  max-height: 88vh;
+  padding: 28rpx;
+  flex-direction: column;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  box-shadow: 0 24rpx 80rpx rgba(0, 0, 0, 0.28);
+}
+
+.ai-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-report-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.ai-report-model {
+  margin-top: 4rpx;
+  color: #86909C;
+  font-size: 19rpx;
+}
+
+.ai-report-close {
+  display: flex;
+  width: 52rpx;
+  height: 52rpx;
+  align-items: center;
+  justify-content: center;
+  color: #86909C;
+  background: #F2F3F5;
+  border-radius: 50%;
+  font-size: 34rpx;
+}
+
+.ai-report-scroll {
+  height: 650rpx;
+  margin-top: 20rpx;
+  padding: 20rpx;
+  background: #F7F8FA;
+  border-radius: 16rpx;
+}
+
+.ai-report-content {
+  color: #303846;
+  font-size: 23rpx;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.ai-report-notice {
+  margin-top: 14rpx;
+  color: #86909C;
+  font-size: 19rpx;
+  text-align: center;
+}
+
+.ai-report-copy {
+  display: flex;
+  height: 68rpx;
+  margin: 16rpx 0 0;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  background: #1677FF;
+  border-radius: 14rpx;
+  font-size: 24rpx;
+  line-height: 68rpx;
 }
