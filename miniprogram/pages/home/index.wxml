@@ -18,9 +18,11 @@
       </view>
       <view class="hero-record-copy">
         <view class="hero-record-title">健康档案</view>
-        <view class="hero-record-desc">查看记录</view>
+        <view class="hero-record-desc">去生成档案</view>
       </view>
-      <text class="hero-arrow">›</text>
+      <view class="hero-arrow">
+        <view class="hero-arrow-icon"></view>
+      </view>
     </view>
   </view>
 
