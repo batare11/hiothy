@@ -67,7 +67,7 @@
             data-message-id="{{message.id}}"
             loading="{{revokingReplyId === message.id}}"
             bindtap="revokeFeedbackReply"
-          >撤销此回复</button>
+          >撤销</button>
         </view>
       </view>
       <view class="member-actions">
