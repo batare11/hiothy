@@ -1,30 +1,42 @@
 const { request } = require("../../utils/request");
 const { formatDate, formatDateTime } = require("../../utils/date");
 
+function formatBirthDate(value) {
+  const matched = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return matched ? `${matched[1]}年${matched[2]}月${matched[3]}日` : "";
+}
+
 Page({
   data: {
     profile: {
       nickname: "",
       avatar_url: "",
       gender: "",
-      phone: "",
       birth_date: ""
     },
     genderOptions: ["男", "女", "其他", "不便透露"],
     genderIndex: 0,
     feedback: {
-      content: "",
-      contact: ""
+      content: ""
     },
     feedbackHistory: [],
     feedbackTotal: 0,
     feedbackLoading: false,
     feedbackExpanded: false,
     today: formatDate(new Date()),
+    birthDateText: "",
     shortUserId: "",
     avatarLetter: "健",
     saving: false,
     submittingFeedback: false,
+    accessInfo: {
+      role: "free",
+      role_name: "免费用户",
+      permissions: [],
+      is_admin: false,
+      available_roles: []
+    },
+    applyingRole: "",
     hasLoaded: false
   },
 
@@ -55,7 +67,8 @@ Page({
   async refreshPage() {
     await Promise.all([
       this.loadProfile(),
-      this.loadFeedbackHistory()
+      this.loadFeedbackHistory(),
+      this.loadAccess()
     ]);
     this.setData({ hasLoaded: true });
   },
@@ -63,10 +76,17 @@ Page({
   async loadProfile() {
     try {
       const response = await request({ url: "/profile", silent: true });
-      const profile = response.data || {};
+      const sourceProfile = response.data || {};
+      const profile = {
+        nickname: sourceProfile.nickname || "",
+        avatar_url: sourceProfile.avatar_url || "",
+        gender: sourceProfile.gender || "",
+        birth_date: sourceProfile.birth_date || ""
+      };
       const genderIndex = Math.max(this.data.genderOptions.indexOf(profile.gender), 0);
       this.setData({
         profile,
+        birthDateText: formatBirthDate(profile.birth_date),
         genderIndex,
         avatarLetter: (profile.nickname || "健").slice(0, 1)
       });
@@ -102,7 +122,58 @@ Page({
   },
 
   changeBirthDate(event) {
-    this.setData({ "profile.birth_date": event.detail.value });
+    this.setData({
+      "profile.birth_date": event.detail.value,
+      birthDateText: formatBirthDate(event.detail.value)
+    });
+  },
+
+  async loadAccess() {
+    try {
+      const accessInfo = await getApp().refreshAccess();
+      this.setData({ accessInfo });
+      const tabBar = this.getTabBar && this.getTabBar();
+      if (tabBar && tabBar.refreshAccessTabs) tabBar.refreshAccessTabs();
+    } catch (error) {
+      this.setData({
+        accessInfo: {
+          role: "free",
+          role_name: "免费用户",
+          permissions: [],
+          is_admin: false,
+          available_roles: []
+        }
+      });
+    }
+  },
+
+  applyMembership(event) {
+    const role = event.currentTarget.dataset.role;
+    const configuredName = event.currentTarget.dataset.name;
+    if (this.data.applyingRole) return;
+    const roleName = configuredName || role;
+    wx.showModal({
+      title: `申请开通${roleName}`,
+      content: "申请将发送给管理员，管理员处理后会通过反馈回复告知你。",
+      confirmText: "提交申请",
+      success: async ({ confirm }) => {
+        if (!confirm) return;
+        this.setData({ applyingRole: role });
+        try {
+          await request({
+            url: "/feedback",
+            method: "POST",
+            data: {
+              content: `【会员申请】申请开通${roleName}`
+            }
+          });
+          wx.showToast({ title: "申请已提交", icon: "success" });
+          await this.loadFeedbackHistory();
+        } finally {
+          this.setData({ applyingRole: "" });
+        }
+      }
+    });
   },
 
   async saveProfile() {
@@ -183,12 +254,11 @@ Page({
         url: "/feedback",
         method: "POST",
         data: {
-          content,
-          contact: this.data.feedback.contact.trim() || null
+          content
         }
       });
       wx.showToast({ title: response.message || "提交成功", icon: "success" });
-      this.setData({ feedback: { content: "", contact: "" } });
+      this.setData({ feedback: { content: "" } });
       await this.loadFeedbackHistory();
     } finally {
       this.setData({ submittingFeedback: false });

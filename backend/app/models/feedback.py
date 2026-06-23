@@ -27,6 +27,15 @@ class Feedback(Base):
         default="pending",
         comment="处理状态，如 pending、processing、resolved",
     )
+    reply: Mapped[str | None] = mapped_column(
+        Text, comment="管理员回复内容"
+    )
+    replied_by: Mapped[str | None] = mapped_column(
+        String(100), comment="回复管理员的微信小程序用户唯一标识"
+    )
+    replied_at: Mapped[datetime | None] = mapped_column(
+        DateTime, comment="管理员回复时间"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),

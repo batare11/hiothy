@@ -16,6 +16,7 @@ from app.models.health_archive import HealthArchive
 from app.models.user_profile import UserProfile
 from app.schemas.user import FeedbackCreate, HealthArchiveUpdate, UserProfileUpdate
 from app.services.auth import public_user_id
+from app.services.access_control import Permission, require_permission
 from app.services.health_report import (
     DEEPSEEK_HEALTH_MODEL,
     generate_health_report,
@@ -44,7 +45,6 @@ def serialize_profile(profile: UserProfile) -> dict:
         "nickname": profile.nickname,
         "avatar_url": profile.avatar_url,
         "gender": profile.gender,
-        "phone": profile.phone,
         "birth_date": profile.birth_date,
     }
 
@@ -138,6 +138,7 @@ async def create_health_archive_ai_report(
     mini_user_id: str = Depends(get_mini_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
+    require_permission(db, mini_user_id, Permission.AI_HEALTH_REPORT)
     trace_id = uuid.uuid4().hex[:10]
     started_at = time.perf_counter()
     logger.info("AI health report [%s] request received", trace_id)
@@ -202,7 +203,6 @@ def create_feedback(
     feedback = Feedback(
         mini_user_id=mini_user_id,
         content=payload.content,
-        contact=payload.contact,
     )
     db.add(feedback)
     db.commit()
@@ -242,8 +242,9 @@ def list_feedback(
                 {
                     "id": item.id,
                     "content": item.content,
-                    "contact": item.contact,
                     "status": item.status,
+                    "reply": item.reply,
+                    "replied_at": item.replied_at,
                     "created_at": item.created_at,
                 }
                 for item in items

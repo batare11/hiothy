@@ -90,11 +90,24 @@ Page({
     aiReportLoading: false,
     aiReportVisible: false,
     aiReport: "",
-    aiReportModel: ""
+    aiReportModel: "",
+    canAiHealthReport: false
   },
 
   onLoad() {
+    this.loadAccess();
     this.loadOverview();
+  },
+
+  async loadAccess() {
+    try {
+      const access = await getApp().refreshAccess();
+      this.setData({
+        canAiHealthReport: (access.permissions || []).includes("ai_health_report")
+      });
+    } catch (error) {
+      this.setData({ canAiHealthReport: false });
+    }
   },
 
   onPullDownRefresh() {
@@ -314,6 +327,17 @@ Page({
 
   generateAiHealthReport() {
     if (this.data.aiReportLoading) return;
+    if (!this.data.canAiHealthReport) {
+      wx.showModal({
+        title: "会员功能",
+        content: "当前账号暂无 AI 档案分析权限，请前往“我的”查看可开通的会员服务。",
+        confirmText: "前往查看",
+        success: ({ confirm }) => {
+          if (confirm) wx.switchTab({ url: "/pages/profile/index" });
+        }
+      });
+      return;
+    }
     if (!this.ensureArchiveReady()) return;
     wx.showModal({
       title: "生成 AI 健康报告",

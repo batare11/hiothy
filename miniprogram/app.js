@@ -39,6 +39,7 @@ App({
     accessToken: "",
     miniUserId: "",
     userProfile: null,
+    accessInfo: null,
     loginPromise: null
   },
 
@@ -53,9 +54,30 @@ App({
   clearLogin() {
     this.globalData.accessToken = "";
     this.globalData.miniUserId = "";
+    this.globalData.accessInfo = null;
     wx.removeStorageSync("accessToken");
     wx.removeStorageSync("accessTokenExpiresAt");
     wx.removeStorageSync("wechatUserId");
+  },
+
+  async refreshAccess() {
+    const { request } = require("./utils/request");
+    const response = await request({
+      url: "/access/me",
+      silent: true
+    });
+    this.globalData.accessInfo = response.data || {
+      role: "free",
+      role_name: "免费用户",
+      permissions: [],
+      is_admin: false
+    };
+    return this.globalData.accessInfo;
+  },
+
+  hasPermission(permission) {
+    const access = this.globalData.accessInfo || {};
+    return (access.permissions || []).includes(permission);
   },
 
   async ensureLogin(force = false) {

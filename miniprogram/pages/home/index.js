@@ -51,6 +51,7 @@ Page({
     ocrNotice: "",
     ocrEngine: "rapid",
     cloudOcrConsent: false,
+    canCloudOcr: false,
     ocrEngines: [
       {
         value: "rapid",
@@ -116,6 +117,7 @@ Page({
   },
 
   onLoad() {
+    this.loadAccess();
     this.refreshPage();
   },
 
@@ -127,6 +129,18 @@ Page({
       if (tabBar.refreshUnreadCount) tabBar.refreshUnreadCount();
     }
     if (this.data.hasLoaded) this.loadRecords();
+    this.loadAccess();
+  },
+
+  async loadAccess() {
+    try {
+      const access = await getApp().refreshAccess();
+      this.setData({
+        canCloudOcr: (access.permissions || []).includes("cloud_ocr")
+      });
+    } catch (error) {
+      this.setData({ canCloudOcr: false });
+    }
   },
 
   onHide() {
@@ -152,6 +166,17 @@ Page({
   selectOcrEngine(event) {
     const engine = event.currentTarget.dataset.value;
     if (engine === this.data.ocrEngine) return;
+    if (engine !== "rapid" && !this.data.canCloudOcr) {
+      wx.showModal({
+        title: "会员功能",
+        content: "当前账号暂无 AI 智能图片识别权限，请前往“我的”查看可开通的会员服务。",
+        confirmText: "前往查看",
+        success: ({ confirm }) => {
+          if (confirm) wx.switchTab({ url: "/pages/profile/index" });
+        }
+      });
+      return;
+    }
     const cloudOcrPrompt = engine === "doubao"
       ? {
           title: "使用豆包增强识别",
