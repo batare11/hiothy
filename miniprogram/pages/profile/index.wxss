@@ -204,9 +204,23 @@
 }
 
 .membership-heading {
+  position: relative;
+  z-index: 2;
   display: flex;
+  min-height: 62rpx;
   align-items: center;
   justify-content: space-between;
+}
+
+.membership-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.membership-heading-right {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
 }
 
 .membership-badge {
@@ -218,11 +232,100 @@
   font-weight: 700;
 }
 
+.membership-arrow {
+  display: flex;
+  width: 34rpx;
+  height: 34rpx;
+  align-items: center;
+  justify-content: center;
+  color: #7A4B00;
+  background: #FFF7DA;
+  border-radius: 50%;
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 30rpx;
+  transform: rotate(0deg);
+  transition: transform 0.2s ease;
+}
+
+.membership-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.membership-blessing {
+  position: relative;
+  z-index: 2;
+  margin-top: 12rpx;
+  padding: 13rpx 16rpx;
+  color: #7A4B00;
+  background: linear-gradient(135deg, #FFF8D8, #FFE7B0);
+  border-radius: 14rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 8rpx 24rpx rgba(255, 193, 7, 0.2);
+  animation: blessing-pop 0.32s ease both;
+}
+
+.membership-blessing.svip {
+  color: #7B2CBF;
+  background: linear-gradient(135deg, #FFF1FA, #E9DDFF 45%, #DDF7FF);
+  box-shadow: 0 10rpx 30rpx rgba(124, 92, 255, 0.22);
+}
+
+.membership-fireworks {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.firework-dot {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0;
+  box-shadow: 0 0 12rpx currentColor;
+  animation: firework-bloom ease-out both;
+}
+
+.firework-dot.svip {
+  box-shadow: 0 0 18rpx currentColor, 0 0 32rpx currentColor;
+}
+
+@keyframes blessing-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(8rpx);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes firework-bloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) translateY(20rpx);
+  }
+  18% {
+    opacity: 1;
+  }
+  78% {
+    opacity: 0.95;
+    transform: scale(1.8) translateY(-18rpx);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.7) translateY(-34rpx);
+  }
+}
+
 .membership-options {
   display: flex;
   margin-top: 14rpx;
-  flex-wrap: wrap;
-  gap: 12rpx;
+  flex-direction: column;
+  gap: 10rpx;
 }
 
 .membership-empty {
@@ -236,12 +339,32 @@
 }
 
 .membership-option {
-  min-width: 280rpx;
-  padding: 16rpx;
-  flex: 1;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 104rpx;
+  padding: 16rpx 14rpx;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14rpx;
   background: #F6FAFF;
   border: 1rpx solid #DCEBFF;
   border-radius: 15rpx;
+}
+
+.membership-option-body {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.membership-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
 }
 
 .svip-option {
@@ -255,22 +378,51 @@
   font-weight: 700;
 }
 
+.membership-tag {
+  padding: 3rpx 8rpx;
+  color: #1677FF;
+  background: #E8F3FF;
+  border-radius: 999rpx;
+  font-size: 17rpx;
+  font-weight: 700;
+}
+
+.membership-tag.svip {
+  color: #7A4B00;
+  background: #FFE7B0;
+}
+
 .membership-desc {
-  min-height: 58rpx;
+  min-height: 0;
   margin-top: 6rpx;
+  overflow: hidden;
   color: #86909C;
   font-size: 19rpx;
   line-height: 1.5;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .membership-btn {
+  display: flex;
+  width: 140rpx;
+  min-width: 140rpx;
   height: 50rpx;
-  margin-top: 10rpx;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   color: #1677FF;
   background: #E8F3FF;
   border-radius: 10rpx;
   font-size: 20rpx;
-  line-height: 50rpx;
+  line-height: 1.2;
+}
+
+.membership-btn::after {
+  border: none;
 }
 
 .membership-btn.premium {

@@ -58,22 +58,43 @@
   </view>
 
   <view wx:if="{{!accessInfo.is_admin}}" class="card compact-card membership-card">
-    <view class="membership-heading">
+    <view class="membership-heading" bindtap="toggleMembershipService">
       <view>
         <view class="section-title">会员服务</view>
         <view class="section-desc">当前：{{accessInfo.role_name}}</view>
       </view>
-      <view class="membership-badge">{{accessInfo.role_name}}</view>
+      <view class="membership-heading-right">
+        <view class="membership-badge">{{accessInfo.role_name}}</view>
+        <view class="membership-arrow {{membershipExpanded ? 'expanded' : ''}}">›</view>
+      </view>
     </view>
-    <view class="membership-options">
+    <view wx:if="{{membershipBlessing}}" class="membership-blessing {{membershipFireworkLevel}}">
+      {{membershipBlessing}}
+    </view>
+    <view wx:if="{{membershipFireworks.length}}" class="membership-fireworks">
+      <view
+        wx:for="{{membershipFireworks}}"
+        wx:key="id"
+        class="firework-dot {{membershipFireworkLevel}}"
+        style="left: {{item.left}}%; top: {{item.top}}%; width: {{item.size}}rpx; height: {{item.size}}rpx; background: {{item.color}}; animation-delay: {{item.delay}}ms; animation-duration: {{item.duration}}ms;"
+      ></view>
+    </view>
+    <view wx:if="{{membershipExpanded}}" class="membership-options">
       <view
         wx:for="{{accessInfo.available_roles}}"
         wx:key="code"
-        class="membership-option"
+        class="membership-option {{item.code === 'svip' ? 'svip-option' : ''}}"
       >
-        <view class="membership-name">{{item.name}}</view>
-        <view class="membership-desc">
-          {{item.description || "解锁更多会员功能"}}
+        <view class="membership-option-body">
+          <view class="membership-title-row">
+            <view class="membership-name">{{item.name}}</view>
+            <view class="membership-tag {{item.code === 'svip' ? 'svip' : ''}}">
+              {{item.code === 'svip' ? '尊享' : '推荐'}}
+            </view>
+          </view>
+          <view class="membership-desc">
+            {{item.description || "解锁更多会员功能"}}
+          </view>
         </view>
         <button
           class="membership-btn"

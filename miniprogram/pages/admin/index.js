@@ -40,8 +40,9 @@ Page({
     },
     userGrant: {
       archiveId: "",
-      roleCode: "",
-      roleName: ""
+      searched: false,
+      loading: false,
+      results: []
     },
     hasLoaded: false
   },
@@ -166,20 +167,8 @@ Page({
         silent: true
       });
       const normalized = this.normalizeRbac(response.data || {});
-      const selectedRoleStillEnabled = normalized.assignableRoles.some(
-        (role) => role.code === this.data.userGrant.roleCode
-      );
       this.setData({
-        ...normalized,
-        ...(!selectedRoleStillEnabled
-          ? {
-              userGrant: {
-                ...this.data.userGrant,
-                roleCode: "",
-                roleName: ""
-              }
-            }
-          : {})
+        ...normalized
       });
     } catch (error) {
       if (error.statusCode === 403) {
@@ -202,6 +191,14 @@ Page({
       scope === "newPermission" ||
       scope === "userGrant"
     ) {
+      if (scope === "userGrant" && field === "archiveId") {
+        this.setData({
+          [`${scope}.${field}`]: value,
+          "userGrant.searched": false,
+          "userGrant.results": []
+        });
+        return;
+      }
       this.setData({ [`${scope}.${field}`]: value });
       return;
     }
@@ -209,19 +206,63 @@ Page({
   },
 
   changeGrantRole(event) {
-    const index = Number(event.detail.value);
-    const role = this.data.assignableRoles[index];
+    const userIndex = Number(event.currentTarget.dataset.index);
+    const roleIndex = Number(event.detail.value);
+    const role = this.data.assignableRoles[roleIndex];
+    if (Number.isNaN(userIndex)) return;
     this.setData({
-      "userGrant.roleCode": role ? role.code : "",
-      "userGrant.roleName": role ? role.name : ""
+      [`userGrant.results[${userIndex}].roleCode`]: role ? role.code : "",
+      [`userGrant.results[${userIndex}].roleName`]: role ? role.name : ""
     });
   },
 
-  grantUserRole() {
+  async searchUserRoles() {
     const archiveId = this.data.userGrant.archiveId.trim();
-    const role = this.data.userGrant.roleCode;
+    if (!archiveId) {
+      wx.showToast({ title: "请先填写档案 ID", icon: "none" });
+      return;
+    }
+    this.setData({ "userGrant.loading": true, "userGrant.searched": false });
+    try {
+      const response = await request({
+        url: "/admin/users/search",
+        data: { archive_id: archiveId },
+        silent: true
+      });
+      const data = response.data || {};
+      const results = (data.items || []).map((item) => ({
+        ...item,
+        roleCode: "",
+        roleName: ""
+      }));
+      this.setData({
+        "userGrant.searched": true,
+        "userGrant.results": results
+      });
+      if (!results.length) {
+        wx.showToast({ title: "未找到匹配的档案 ID 用户", icon: "none" });
+      }
+    } catch (error) {
+      this.setData({
+        "userGrant.searched": false,
+        "userGrant.results": []
+      });
+      wx.showToast({
+        title: error.message || "未找到该档案 ID 用户",
+        icon: "none"
+      });
+    } finally {
+      this.setData({ "userGrant.loading": false });
+    }
+  },
+
+  grantUserRole(event) {
+    const userIndex = Number(event.currentTarget.dataset.index);
+    const targetUser = this.data.userGrant.results[userIndex];
+    const archiveId = targetUser ? targetUser.archive_id : "";
+    const role = targetUser ? targetUser.roleCode : "";
     if (!archiveId || !role) {
-      wx.showToast({ title: "请填写档案 ID 并选择角色", icon: "none" });
+      wx.showToast({ title: "请选择用户和角色", icon: "none" });
       return;
     }
     const selectedRole = this.data.assignableRoles.find(
@@ -238,10 +279,30 @@ Page({
           method: "PUT",
           data: { role }
         });
-        this.setData({
-          userGrant: { archiveId: "", roleCode: "", roleName: "" }
-        });
+        await this.searchUserRoles();
         wx.showToast({ title: "授权成功", icon: "success" });
+      }
+    });
+  },
+
+  removeUserRole(event) {
+    const archiveId = event.currentTarget.dataset.archiveId;
+    const role = event.currentTarget.dataset.role;
+    const name = event.currentTarget.dataset.name || role;
+    if (!archiveId || !role) return;
+    wx.showModal({
+      title: "移除角色",
+      content: `确认移除档案 ID ${archiveId} 的${name}角色？`,
+      confirmText: "确认移除",
+      confirmColor: "#E5484D",
+      success: async ({ confirm }) => {
+        if (!confirm) return;
+        await request({
+          url: `/admin/users/${archiveId}/roles/${role}`,
+          method: "DELETE"
+        });
+        await this.searchUserRoles();
+        wx.showToast({ title: "已移除", icon: "success" });
       }
     });
   },

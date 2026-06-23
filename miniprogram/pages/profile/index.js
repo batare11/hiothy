@@ -37,6 +37,10 @@ Page({
       available_roles: []
     },
     applyingRole: "",
+    membershipExpanded: false,
+    membershipBlessing: "",
+    membershipFireworkLevel: "",
+    membershipFireworks: [],
     deletingFeedbackId: 0,
     deletingMessageId: 0,
     hasLoaded: false
@@ -176,6 +180,57 @@ Page({
         }
       }
     });
+  },
+
+  toggleMembershipService() {
+    const access = this.data.accessInfo || {};
+    const role = String(access.role || "").toLowerCase();
+    const roleName = String(access.role_name || "").toLowerCase();
+    const isSvip = role.includes("svip") || roleName.includes("svip") || roleName.includes("超级");
+    const isVip = !isSvip && (
+      role.includes("vip") || roleName.includes("vip") || roleName.includes("会员")
+    );
+    this.setData({
+      membershipExpanded: !this.data.membershipExpanded
+    });
+    if (isSvip || isVip) {
+      this.playMembershipFireworks(isSvip ? "svip" : "vip");
+    }
+  },
+
+  playMembershipFireworks(level) {
+    const count = level === "svip" ? 42 : 24;
+    const palette = level === "svip"
+      ? ["#FF4D8D", "#FFD166", "#7C5CFF", "#35D0FF", "#4ADE80", "#FF8A00"]
+      : ["#FFD166", "#4DA3FF", "#52C41A", "#FF8A00"];
+    const fireworks = Array.from({ length: count }).map((_, index) => ({
+      id: `${Date.now()}-${index}`,
+      left: 8 + Math.round(Math.random() * 84),
+      top: 8 + Math.round(Math.random() * 46),
+      size: level === "svip"
+        ? 8 + Math.round(Math.random() * 8)
+        : 6 + Math.round(Math.random() * 6),
+      color: palette[index % palette.length],
+      delay: Math.round(Math.random() * 360),
+      duration: level === "svip"
+        ? 900 + Math.round(Math.random() * 420)
+        : 760 + Math.round(Math.random() * 280)
+    }));
+    this.setData({
+      membershipBlessing: level === "svip"
+        ? "尊贵的SVIP祝您身体健康！！"
+        : "尊贵的VIP祝你身体健康！",
+      membershipFireworkLevel: level,
+      membershipFireworks: fireworks
+    });
+    if (this.membershipFireworkTimer) clearTimeout(this.membershipFireworkTimer);
+    this.membershipFireworkTimer = setTimeout(() => {
+      this.setData({
+        membershipBlessing: "",
+        membershipFireworkLevel: "",
+        membershipFireworks: []
+      });
+    }, level === "svip" ? 1800 : 1400);
   },
 
   async saveProfile() {

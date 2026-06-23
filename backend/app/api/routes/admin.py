@@ -532,6 +532,123 @@ def find_user_by_archive_id(db: Session, archive_id: str) -> str:
     raise HTTPException(status_code=404, detail="未找到该健康档案用户")
 
 
+def serialize_user_role_binding(role: Role, binding: UserRole) -> dict:
+    return {
+        "code": role.code,
+        "name": role.name,
+        "description": role.description,
+        "rank": role.rank,
+        "enabled": role.enabled,
+        "expires_at": binding.expires_at,
+        "created_at": binding.created_at,
+        "is_default": False,
+    }
+
+
+def get_user_role_items(db: Session, target_user_id: str) -> list[dict]:
+    rows = db.execute(
+        select(Role, UserRole)
+        .join(UserRole, UserRole.role_code == Role.code)
+        .where(UserRole.mini_user_id == target_user_id)
+        .order_by(Role.rank.desc(), Role.code)
+    ).all()
+    roles = [serialize_user_role_binding(role, binding) for role, binding in rows]
+    if roles:
+        return roles
+    return [
+        {
+            "code": "free",
+            "name": "免费用户",
+            "description": "系统默认身份，未开通会员角色",
+            "rank": 0,
+            "enabled": True,
+            "expires_at": None,
+            "created_at": None,
+            "is_default": True,
+        }
+    ]
+
+
+def serialize_user_role_summary(db: Session, profile: UserProfile) -> dict:
+    archive_id = public_user_id(profile.mini_user_id)[-12:]
+    return {
+        "archive_id": archive_id,
+        "nickname": profile.nickname or "微信用户",
+        "roles": get_user_role_items(db, profile.mini_user_id),
+    }
+
+
+@router.get("/users/search")
+def search_users_by_archive_id(
+    archive_id: str = Query(..., min_length=1, max_length=16),
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_permission(db, mini_user_id, Permission.ROLE_MANAGE)
+    keyword = archive_id.strip().lower()
+    profiles = db.scalars(select(UserProfile)).all()
+    matched: list[dict] = []
+    for profile in profiles:
+        display_archive_id = public_user_id(profile.mini_user_id)[-12:]
+        if keyword in display_archive_id.lower():
+            matched.append(serialize_user_role_summary(db, profile))
+        if len(matched) >= 20:
+            break
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "items": matched,
+            "total": len(matched),
+        },
+    }
+
+
+@router.get("/users/{archive_id}/roles")
+def get_user_roles(
+    archive_id: str,
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_permission(db, mini_user_id, Permission.ROLE_MANAGE)
+    target_user_id = find_user_by_archive_id(db, archive_id)
+    profile = db.scalar(
+        select(UserProfile).where(UserProfile.mini_user_id == target_user_id)
+    )
+    rows = db.execute(
+        select(Role, UserRole)
+        .join(UserRole, UserRole.role_code == Role.code)
+        .where(UserRole.mini_user_id == target_user_id)
+        .order_by(Role.rank.desc(), Role.code)
+    ).all()
+    roles = [
+        serialize_user_role_binding(role, binding)
+        for role, binding in rows
+    ]
+    if not roles:
+        roles = [
+            {
+                "code": "free",
+                "name": "免费用户",
+                "description": "系统默认身份，未开通会员角色",
+                "rank": 0,
+                "enabled": True,
+                "expires_at": None,
+                "created_at": None,
+                "is_default": True,
+            }
+        ]
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "archive_id": archive_id,
+            "nickname": profile.nickname if profile else "微信用户",
+            "roles": roles,
+        },
+    }
+
+
 @router.put("/users/{archive_id}/role")
 def update_user_role(
     archive_id: str,
@@ -570,5 +687,31 @@ def update_user_role(
             "user_id": archive_id,
             "role": payload.role,
             "expires_at": payload.expires_at,
+        },
+    }
+
+
+@router.delete("/users/{archive_id}/roles/{role_code}")
+def remove_user_role(
+    archive_id: str,
+    role_code: str,
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_permission(db, mini_user_id, Permission.ROLE_MANAGE)
+    target_user_id = find_user_by_archive_id(db, archive_id)
+    db.execute(
+        delete(UserRole).where(
+            UserRole.mini_user_id == target_user_id,
+            UserRole.role_code == role_code,
+        )
+    )
+    db.commit()
+    return {
+        "code": 0,
+        "message": "角色已移除",
+        "data": {
+            "user_id": archive_id,
+            "role": role_code,
         },
     }

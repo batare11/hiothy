@@ -593,6 +593,135 @@
   margin-top: 0;
 }
 
+.grant-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.grant-search-row .grant-user-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.grant-search-btn,
+.grant-add-btn {
+  display: flex;
+  height: 66rpx;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #6B4EFF, #8B5CF6);
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 66rpx;
+}
+
+.grant-search-btn {
+  width: 126rpx;
+}
+
+.grant-search-btn::after,
+.grant-add-btn::after,
+.grant-remove-btn::after {
+  border: 0;
+}
+
+.grant-empty {
+  margin-top: 16rpx;
+  padding: 20rpx;
+  color: #86909C;
+  background: #F7F8FA;
+  border: 1rpx dashed #D8DDE6;
+  border-radius: 14rpx;
+  font-size: 22rpx;
+  text-align: center;
+}
+
+.grant-user-result {
+  margin-top: 16rpx;
+  padding: 18rpx;
+  background: #FBFAFF;
+  border: 1rpx solid #E6DBFF;
+  border-radius: 18rpx;
+}
+
+.grant-user-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.grant-user-name {
+  color: #1D2129;
+  font-size: 25rpx;
+  font-weight: 800;
+}
+
+.grant-user-id {
+  margin-top: 4rpx;
+  color: #6B7280;
+  font-size: 21rpx;
+}
+
+.grant-current-roles {
+  display: flex;
+  margin-top: 14rpx;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.grant-role-chip {
+  display: flex;
+  min-height: 44rpx;
+  padding: 6rpx 8rpx 6rpx 14rpx;
+  align-items: center;
+  gap: 8rpx;
+  color: #5B21B6;
+  background: #F0E7FF;
+  border: 1rpx solid #D9C4FF;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+.grant-role-chip.default {
+  padding-right: 14rpx;
+  color: #86909C;
+  background: #F2F3F5;
+  border-color: #E5E6EB;
+}
+
+.grant-remove-btn {
+  display: flex;
+  width: 72rpx;
+  height: 36rpx;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  color: #E5484D;
+  background: #FFFFFF;
+  border-radius: 999rpx;
+  font-size: 18rpx;
+  font-weight: 700;
+  line-height: 36rpx;
+}
+
+.grant-add-row {
+  display: flex;
+  margin-top: 14rpx;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.grant-role-picker-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
 .grant-role-label {
   margin-top: 18rpx;
 }
@@ -606,6 +735,10 @@
   border-radius: 11rpx;
   font-size: 21rpx;
   line-height: 66rpx;
+}
+
+.grant-add-btn {
+  width: 146rpx;
 }
 
 .modal-mask {

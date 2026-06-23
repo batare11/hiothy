@@ -335,25 +335,78 @@
 
       <view class="card user-grant-card">
         <view class="dialog-label">健康档案 ID</view>
-        <input
-          class="rbac-input grant-user-input"
-          value="{{userGrant.archiveId}}"
-          data-scope="userGrant"
-          data-field="archiveId"
-          bindinput="handleRbacInput"
-          placeholder="请输入用户的 12 位健康档案 ID"
-        />
-        <view class="dialog-label grant-role-label">选择角色</view>
-        <picker
-          range="{{assignableRoles}}"
-          range-key="name"
-          bindchange="changeGrantRole"
+        <view class="grant-search-row">
+          <input
+            class="rbac-input grant-user-input"
+            value="{{userGrant.archiveId}}"
+            data-scope="userGrant"
+            data-field="archiveId"
+            bindinput="handleRbacInput"
+            placeholder="输入部分或完整档案 ID 搜索用户"
+          />
+          <button
+            class="grant-search-btn"
+            loading="{{userGrant.loading}}"
+            bindtap="searchUserRoles"
+          >搜索</button>
+        </view>
+
+        <view wx:if="{{userGrant.searched && !userGrant.results.length}}" class="grant-empty">
+          未找到匹配用户，请确认档案 ID 是否正确
+        </view>
+
+        <view
+          wx:for="{{userGrant.results}}"
+          wx:key="archive_id"
+          wx:for-item="user"
+          wx:for-index="userIndex"
+          class="grant-user-result"
         >
-          <view class="grant-role-picker">
-            {{userGrant.roleName || "请选择需要授予的角色"}}
+          <view class="grant-user-heading">
+            <view>
+              <view class="grant-user-name">{{user.nickname || "微信用户"}}</view>
+              <view class="grant-user-id">档案 ID：{{user.archive_id}}</view>
+            </view>
           </view>
-        </picker>
-        <button class="rbac-save-btn" bindtap="grantUserRole">确认授权</button>
+
+          <view class="grant-current-roles">
+            <view
+              wx:for="{{user.roles}}"
+              wx:key="code"
+              wx:for-item="role"
+              class="grant-role-chip {{role.is_default ? 'default' : ''}}"
+            >
+              <text>{{role.name}}</text>
+              <button
+                wx:if="{{!role.is_default}}"
+                class="grant-remove-btn"
+                data-archive-id="{{user.archive_id}}"
+                data-role="{{role.code}}"
+                data-name="{{role.name}}"
+                bindtap="removeUserRole"
+              >移除</button>
+            </view>
+          </view>
+
+          <view class="grant-add-row">
+            <picker
+              class="grant-role-picker-wrap"
+              range="{{assignableRoles}}"
+              range-key="name"
+              data-index="{{userIndex}}"
+              bindchange="changeGrantRole"
+            >
+              <view class="grant-role-picker">
+                {{user.roleName || "选择要添加的角色"}}
+              </view>
+            </picker>
+            <button
+              class="grant-add-btn"
+              data-index="{{userIndex}}"
+              bindtap="grantUserRole"
+            >添加角色</button>
+          </view>
+        </view>
       </view>
       </view>
       </view>
