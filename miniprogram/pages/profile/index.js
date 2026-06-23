@@ -37,6 +37,8 @@ Page({
       available_roles: []
     },
     applyingRole: "",
+    deletingFeedbackId: 0,
+    deletingMessageId: 0,
     hasLoaded: false
   },
 
@@ -219,13 +221,31 @@ Page({
         processing: { text: "处理中", style: "processing" },
         resolved: { text: "已处理", style: "resolved" }
       };
+      const previousStateById = {};
+      this.data.feedbackHistory.forEach((entry) => {
+        previousStateById[entry.id] = {
+          conversationExpanded: entry.conversationExpanded,
+          replyDraft: entry.replyDraft,
+          sendingMessage: entry.sendingMessage
+        };
+      });
       this.setData({
-        feedbackHistory: (data.items || []).map((item) => ({
-          ...item,
-          displayTime: formatDateTime(item.created_at),
-          statusText: (statusMap[item.status] || statusMap.pending).text,
-          statusStyle: (statusMap[item.status] || statusMap.pending).style
-        })),
+        feedbackHistory: (data.items || []).map((item) => {
+          const previous = previousStateById[item.id] || {};
+          return {
+            ...item,
+            displayTime: formatDateTime(item.created_at),
+            messages: (item.messages || []).map((message) => ({
+              ...message,
+              displayTime: formatDateTime(message.created_at)
+            })),
+            conversationExpanded: Boolean(previous.conversationExpanded),
+            replyDraft: previous.replyDraft || "",
+            sendingMessage: Boolean(previous.sendingMessage),
+            statusText: (statusMap[item.status] || statusMap.pending).text,
+            statusStyle: (statusMap[item.status] || statusMap.pending).style
+          };
+        }),
         feedbackTotal: data.total || 0
       });
     } catch (error) {
@@ -233,6 +253,104 @@ Page({
     } finally {
       this.setData({ feedbackLoading: false });
     }
+  },
+
+  toggleFeedbackConversation(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const expanded = this.data.feedbackHistory[index].conversationExpanded;
+    this.setData({
+      [`feedbackHistory[${index}].conversationExpanded`]: !expanded
+    });
+  },
+
+  handleConversationInput(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    this.setData({
+      [`feedbackHistory[${index}].replyDraft`]: event.detail.value
+    });
+  },
+
+  async sendFeedbackMessage(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const item = this.data.feedbackHistory[index];
+    const content = item.replyDraft.trim();
+    if (content.length < 2 || item.sendingMessage) {
+      if (content.length < 2) {
+        wx.showToast({ title: "请填写至少 2 个字", icon: "none" });
+      }
+      return;
+    }
+    this.setData({ [`feedbackHistory[${index}].sendingMessage`]: true });
+    try {
+      await request({
+        url: `/feedback/${item.id}/messages`,
+        method: "POST",
+        data: { content }
+      });
+      wx.showToast({ title: "消息已发送", icon: "success" });
+      this.setData({
+        [`feedbackHistory[${index}].replyDraft`]: ""
+      });
+      await this.loadFeedbackHistory();
+    } finally {
+      const current = this.data.feedbackHistory[index];
+      if (current) {
+        this.setData({
+          [`feedbackHistory[${index}].sendingMessage`]: false
+        });
+      }
+    }
+  },
+
+  deleteFeedback(event) {
+    const id = Number(event.currentTarget.dataset.id);
+    if (!id || this.data.deletingFeedbackId) return;
+    wx.showModal({
+      title: "删除反馈",
+      content: "确定删除这条反馈？删除后该反馈和下方所有对话记录将不再展示，且不能恢复。",
+      confirmText: "删除",
+      confirmColor: "#E5484D",
+      success: async ({ confirm }) => {
+        if (!confirm) return;
+        this.setData({ deletingFeedbackId: id });
+        try {
+          await request({
+            url: `/feedback/${id}`,
+            method: "DELETE"
+          });
+          wx.showToast({ title: "反馈已删除", icon: "success" });
+          await this.loadFeedbackHistory();
+        } finally {
+          this.setData({ deletingFeedbackId: 0 });
+        }
+      }
+    });
+  },
+
+  deleteFeedbackMessage(event) {
+    const feedbackId = Number(event.currentTarget.dataset.feedbackId);
+    const messageId = Number(event.currentTarget.dataset.messageId);
+    if (!feedbackId || !messageId || this.data.deletingMessageId) return;
+    wx.showModal({
+      title: "删除消息",
+      content: "确定删除这条消息？删除后该消息将不再展示，且不能恢复。",
+      confirmText: "删除",
+      confirmColor: "#E5484D",
+      success: async ({ confirm }) => {
+        if (!confirm) return;
+        this.setData({ deletingMessageId: messageId });
+        try {
+          await request({
+            url: `/feedback/${feedbackId}/messages/${messageId}`,
+            method: "DELETE"
+          });
+          wx.showToast({ title: "消息已删除", icon: "success" });
+          await this.loadFeedbackHistory();
+        } finally {
+          this.setData({ deletingMessageId: 0 });
+        }
+      }
+    });
   },
 
   toggleFeedbackHistory() {

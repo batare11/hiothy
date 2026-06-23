@@ -100,11 +100,24 @@ Page({
       });
       const data = response.data || {};
       this.setData({
-        items: (data.items || []).map((item) => ({
-          ...item,
-          displayTime: formatDateTime(item.created_at),
-          statusText: item.status === "resolved" ? "已处理" : "待处理"
-        })),
+        items: (data.items || []).map((item) => {
+          const messages = (item.messages || []).map((message) => ({
+            ...message,
+            displayTime: formatDateTime(message.created_at)
+          }));
+          const conversationMessages = messages.filter((message, index) => !(
+            index === 0 &&
+            message.sender_type === "user" &&
+            message.content === item.content
+          ));
+          return {
+            ...item,
+            messages,
+            conversationMessages,
+            displayTime: formatDateTime(item.created_at),
+            statusText: item.status === "resolved" ? "已处理" : "待处理"
+          };
+        }),
         total: data.total || 0,
         totalPages: data.total_pages || 1,
         hasLoaded: true
@@ -406,12 +419,11 @@ Page({
 
   replyFeedback(event) {
     const id = Number(event.currentTarget.dataset.id);
-    const item = this.data.items.find((entry) => entry.id === id);
     wx.showModal({
-      title: "回复用户反馈",
+      title: "发送管理员消息",
       editable: true,
       placeholderText: "请输入回复内容",
-      content: item && item.reply ? item.reply : "",
+      content: "",
       confirmText: "发送回复",
       success: async ({ confirm, content }) => {
         if (!confirm) return;
@@ -440,7 +452,7 @@ Page({
     const id = Number(event.currentTarget.dataset.id);
     wx.showModal({
       title: "删除反馈",
-      content: "确定删除其他人的反馈信息？删除后该反馈将不再展示，但系统会保留删除记录。",
+      content: "确定删除这条反馈信息？删除后该反馈和下方所有对话记录将不再展示，且不能恢复。",
       confirmText: "确定删除",
       confirmColor: "#E5484D",
       success: async ({ confirm }) => {
@@ -462,17 +474,18 @@ Page({
 
   revokeFeedbackReply(event) {
     const id = Number(event.currentTarget.dataset.id);
+    const messageId = Number(event.currentTarget.dataset.messageId);
     wx.showModal({
       title: "撤销管理员回复",
-      content: "确定撤销这条管理员回复？撤销后用户将不再看到该回复，系统会保留撤销记录。",
+      content: "确定撤销这条管理员回复？撤销后用户将不再看到该回复，且不能恢复。",
       confirmText: "确定撤销",
       confirmColor: "#E5484D",
       success: async ({ confirm }) => {
         if (!confirm) return;
-        this.setData({ revokingReplyId: id });
+        this.setData({ revokingReplyId: messageId });
         try {
           await request({
-            url: `/admin/feedback/${id}/reply`,
+            url: `/admin/feedback/${id}/messages/${messageId}`,
             method: "DELETE"
           });
           wx.showToast({ title: "回复已撤销", icon: "success" });

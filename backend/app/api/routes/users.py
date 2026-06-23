@@ -3,18 +3,24 @@
 import logging
 import time
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_mini_user_id
 from app.core.database import get_db
-from app.models.feedback import Feedback
+from app.models.feedback import Feedback, FeedbackMessage
 from app.models.blood_pressure import BloodPressureRecord
 from app.models.health_archive import HealthArchive
 from app.models.user_profile import UserProfile
-from app.schemas.user import FeedbackCreate, HealthArchiveUpdate, UserProfileUpdate
+from app.schemas.user import (
+    FeedbackCreate,
+    FeedbackMessageCreate,
+    HealthArchiveUpdate,
+    UserProfileUpdate,
+)
 from app.services.auth import public_user_id
 from app.services.access_control import Permission, require_permission
 from app.services.health_report import (
@@ -24,6 +30,52 @@ from app.services.health_report import (
 
 router = APIRouter(tags=["users"])
 logger = logging.getLogger("uvicorn.error")
+
+
+def serialize_feedback_messages(
+    db: Session,
+    feedback: Feedback,
+) -> list[dict]:
+    messages = db.scalars(
+        select(FeedbackMessage)
+        .where(
+            FeedbackMessage.feedback_id == feedback.id,
+            FeedbackMessage.deleted_at.is_(None),
+        )
+        .order_by(FeedbackMessage.created_at, FeedbackMessage.id)
+    ).all()
+    if messages:
+        return [
+            {
+                "id": message.id,
+                "sender_type": message.sender_type,
+                "content": message.content,
+                "created_at": message.created_at,
+                "can_delete": message.sender_type == "user",
+            }
+            for message in messages
+        ]
+
+    legacy_messages = [
+        {
+            "id": f"legacy-user-{feedback.id}",
+            "sender_type": "user",
+            "content": feedback.content,
+            "created_at": feedback.created_at,
+            "can_delete": False,
+        }
+    ]
+    if feedback.reply and feedback.reply_deleted_at is None:
+        legacy_messages.append(
+            {
+                "id": f"legacy-admin-{feedback.id}",
+                "sender_type": "admin",
+                "content": feedback.reply,
+                "created_at": feedback.replied_at or feedback.created_at,
+                "can_delete": False,
+            }
+        )
+    return legacy_messages
 
 
 def get_or_create_profile(db: Session, mini_user_id: str) -> UserProfile:
@@ -205,6 +257,16 @@ def create_feedback(
         content=payload.content,
     )
     db.add(feedback)
+    db.flush()
+    db.add(
+        FeedbackMessage(
+            feedback_id=feedback.id,
+            sender_type="user",
+            sender_id=mini_user_id,
+            content=payload.content,
+        )
+    )
+    feedback.last_activity_at = datetime.now()
     db.commit()
     db.refresh(feedback)
     return {
@@ -216,6 +278,103 @@ def create_feedback(
             "created_at": feedback.created_at,
         },
     }
+
+
+@router.post("/feedback/{feedback_id}/messages")
+def create_feedback_message(
+    feedback_id: int,
+    payload: FeedbackMessageCreate,
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    feedback = db.get(Feedback, feedback_id)
+    if (
+        feedback is None
+        or feedback.deleted_at is not None
+        or feedback.mini_user_id != mini_user_id
+    ):
+        raise HTTPException(status_code=404, detail="反馈不存在")
+    message = FeedbackMessage(
+        feedback_id=feedback.id,
+        sender_type="user",
+        sender_id=mini_user_id,
+        content=payload.content.strip(),
+    )
+    db.add(message)
+    feedback.status = "pending"
+    feedback.last_activity_at = datetime.now()
+    db.commit()
+    db.refresh(message)
+    return {
+        "code": 0,
+        "message": "消息已发送",
+        "data": {
+            "id": message.id,
+            "sender_type": message.sender_type,
+            "content": message.content,
+            "created_at": message.created_at,
+        },
+    }
+
+
+@router.delete("/feedback/{feedback_id}/messages/{message_id}")
+def delete_feedback_message(
+    feedback_id: int,
+    message_id: int,
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    feedback = db.get(Feedback, feedback_id)
+    if (
+        feedback is None
+        or feedback.deleted_at is not None
+        or feedback.mini_user_id != mini_user_id
+    ):
+        raise HTTPException(status_code=404, detail="反馈不存在")
+    message = db.get(FeedbackMessage, message_id)
+    if (
+        message is None
+        or message.feedback_id != feedback_id
+        or message.sender_type != "user"
+        or message.sender_id != mini_user_id
+        or message.deleted_at is not None
+    ):
+        raise HTTPException(status_code=404, detail="消息不存在")
+    message.deleted_at = datetime.now()
+    message.deleted_by = mini_user_id
+    feedback.last_activity_at = datetime.now()
+    db.commit()
+    return {"code": 0, "message": "消息已删除", "data": None}
+
+
+@router.delete("/feedback/{feedback_id}")
+def delete_feedback(
+    feedback_id: int,
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    feedback = db.get(Feedback, feedback_id)
+    if (
+        feedback is None
+        or feedback.deleted_at is not None
+        or feedback.mini_user_id != mini_user_id
+    ):
+        raise HTTPException(status_code=404, detail="反馈不存在")
+    feedback.deleted_at = datetime.now()
+    feedback.deleted_by = mini_user_id
+    db.execute(
+        update(FeedbackMessage)
+        .where(
+            FeedbackMessage.feedback_id == feedback_id,
+            FeedbackMessage.deleted_at.is_(None),
+        )
+        .values(
+            deleted_at=feedback.deleted_at,
+            deleted_by=mini_user_id,
+        )
+    )
+    db.commit()
+    return {"code": 0, "message": "反馈已删除", "data": None}
 
 
 @router.get("/feedback")
@@ -233,7 +392,7 @@ def list_feedback(
         select(func.count()).select_from(base.subquery())
     ) or 0
     items = db.scalars(
-        base.order_by(Feedback.created_at.desc(), Feedback.id.desc())
+        base.order_by(Feedback.last_activity_at.desc(), Feedback.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()
@@ -254,6 +413,8 @@ def list_feedback(
                         if item.reply_deleted_at is None
                         else None
                     ),
+                    "messages": serialize_feedback_messages(db, item),
+                    "last_activity_at": item.last_activity_at,
                     "created_at": item.created_at,
                 }
                 for item in items

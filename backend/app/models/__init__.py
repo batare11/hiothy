@@ -7,7 +7,7 @@ from app.models.access import (
     UserRole,
 )
 from app.models.blood_pressure import BloodPressureRecord
-from app.models.feedback import Feedback
+from app.models.feedback import Feedback, FeedbackMessage
 from app.models.health_archive import HealthArchive
 from app.models.message import Message
 from app.models.user_profile import UserProfile
@@ -15,6 +15,7 @@ from app.models.user_profile import UserProfile
 __all__ = [
     "BloodPressureRecord",
     "Feedback",
+    "FeedbackMessage",
     "HealthArchive",
     "Message",
     "UserProfile",

@@ -72,6 +72,10 @@ class FeedbackReply(BaseModel):
     reply: str = Field(min_length=2, max_length=2000)
 
 
+class FeedbackMessageCreate(BaseModel):
+    content: str = Field(min_length=2, max_length=2000)
+
+
 class UserRoleUpdate(BaseModel):
     role: str = Field(min_length=2, max_length=30, pattern="^[a-z][a-z0-9_]*$")
     expires_at: datetime | None = None
