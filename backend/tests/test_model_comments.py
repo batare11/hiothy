@@ -2,6 +2,7 @@ from app.core.database import Base
 from app.models import (
     BloodPressureRecord,
     Feedback,
+    FeedbackMessage,
     HealthArchive,
     Message,
     PermissionDefinition,
@@ -19,6 +20,7 @@ def test_all_model_tables_and_columns_have_comments():
         HealthArchive,
         Message,
         Feedback,
+        FeedbackMessage,
         Role,
         PermissionDefinition,
         RolePermission,
@@ -38,6 +40,7 @@ def test_all_business_models_are_registered():
         "health_archives",
         "messages",
         "feedback",
+        "feedback_messages",
         "roles",
         "permissions",
         "role_permissions",

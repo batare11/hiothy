@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -15,7 +15,7 @@ from app.models.access import (
     RolePermission,
     UserRole,
 )
-from app.models.feedback import Feedback
+from app.models.feedback import Feedback, FeedbackMessage
 from app.models.user_profile import UserProfile
 from app.schemas.user import (
     FeedbackReply,
@@ -289,6 +289,7 @@ def unbind_role_permission(
 def serialize_admin_feedback(
     feedback: Feedback,
     nickname: str | None = None,
+    messages: list[dict] | None = None,
 ) -> dict:
     visible_reply = (
         feedback.reply if feedback.reply_deleted_at is None else None
@@ -304,7 +305,52 @@ def serialize_admin_feedback(
             feedback.replied_at if visible_reply is not None else None
         ),
         "created_at": feedback.created_at,
+        "last_activity_at": feedback.last_activity_at,
+        "messages": messages or [],
     }
+
+
+def serialize_admin_messages(db: Session, feedback: Feedback) -> list[dict]:
+    messages = db.scalars(
+        select(FeedbackMessage)
+        .where(
+            FeedbackMessage.feedback_id == feedback.id,
+            FeedbackMessage.deleted_at.is_(None),
+        )
+        .order_by(FeedbackMessage.created_at, FeedbackMessage.id)
+    ).all()
+    if messages:
+        return [
+            {
+                "id": message.id,
+                "sender_type": message.sender_type,
+                "content": message.content,
+                "created_at": message.created_at,
+                "can_revoke": message.sender_type == "admin",
+            }
+            for message in messages
+        ]
+
+    legacy_messages = [
+        {
+            "id": f"legacy-user-{feedback.id}",
+            "sender_type": "user",
+            "content": feedback.content,
+            "created_at": feedback.created_at,
+            "can_revoke": False,
+        }
+    ]
+    if feedback.reply and feedback.reply_deleted_at is None:
+        legacy_messages.append(
+            {
+                "id": f"legacy-admin-{feedback.id}",
+                "sender_type": "admin",
+                "content": feedback.reply,
+                "created_at": feedback.replied_at or feedback.created_at,
+                "can_revoke": False,
+            }
+        )
+    return legacy_messages
 
 
 @router.get("/feedback")
@@ -333,7 +379,7 @@ def list_all_feedback(
             UserProfile.mini_user_id == Feedback.mini_user_id,
         )
         .where(*filters)
-        .order_by(Feedback.created_at.desc(), Feedback.id.desc())
+        .order_by(Feedback.last_activity_at.desc(), Feedback.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()
@@ -342,7 +388,11 @@ def list_all_feedback(
         "message": "success",
         "data": {
             "items": [
-                serialize_admin_feedback(feedback, nickname)
+                serialize_admin_feedback(
+                    feedback,
+                    nickname,
+                    serialize_admin_messages(db, feedback),
+                )
                 for feedback, nickname in rows
             ],
             "total": total,
@@ -370,6 +420,15 @@ def reply_feedback(
     feedback.reply_deleted_at = None
     feedback.reply_deleted_by = None
     feedback.status = "resolved"
+    feedback.last_activity_at = datetime.now()
+    db.add(
+        FeedbackMessage(
+            feedback_id=feedback.id,
+            sender_type="admin",
+            sender_id=mini_user_id,
+            content=payload.reply.strip(),
+        )
+    )
     db.commit()
     db.refresh(feedback)
     return {
@@ -377,6 +436,46 @@ def reply_feedback(
         "message": "回复成功",
         "data": serialize_admin_feedback(feedback),
     }
+
+
+@router.delete("/feedback/{feedback_id}/messages/{message_id}")
+def revoke_feedback_message(
+    feedback_id: int,
+    message_id: int,
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_permission(db, mini_user_id, Permission.FEEDBACK_MANAGE)
+    message = db.get(FeedbackMessage, message_id)
+    if (
+        message is None
+        or message.feedback_id != feedback_id
+        or message.sender_type != "admin"
+        or message.deleted_at is not None
+    ):
+        raise HTTPException(status_code=404, detail="管理员回复不存在")
+    message.deleted_at = datetime.now()
+    message.deleted_by = mini_user_id
+    feedback = db.get(Feedback, feedback_id)
+    if feedback is not None:
+        latest = db.scalar(
+            select(FeedbackMessage)
+            .where(
+                FeedbackMessage.feedback_id == feedback_id,
+                FeedbackMessage.deleted_at.is_(None),
+                FeedbackMessage.id != message_id,
+            )
+            .order_by(FeedbackMessage.created_at.desc(), FeedbackMessage.id.desc())
+            .limit(1)
+        )
+        feedback.status = (
+            "resolved"
+            if latest is not None and latest.sender_type == "admin"
+            else "pending"
+        )
+        feedback.last_activity_at = datetime.now()
+    db.commit()
+    return {"code": 0, "message": "管理员回复已撤销", "data": None}
 
 
 @router.delete("/feedback/{feedback_id}")
@@ -391,6 +490,17 @@ def delete_feedback(
         raise HTTPException(status_code=404, detail="反馈不存在")
     feedback.deleted_at = datetime.now()
     feedback.deleted_by = mini_user_id
+    db.execute(
+        update(FeedbackMessage)
+        .where(
+            FeedbackMessage.feedback_id == feedback_id,
+            FeedbackMessage.deleted_at.is_(None),
+        )
+        .values(
+            deleted_at=feedback.deleted_at,
+            deleted_by=mini_user_id,
+        )
+    )
     db.commit()
     return {"code": 0, "message": "反馈已删除", "data": None}
 

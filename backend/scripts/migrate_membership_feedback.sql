@@ -124,7 +124,9 @@ ALTER TABLE feedback
     ADD COLUMN IF NOT EXISTS reply_deleted_at TIMESTAMP WITHOUT TIME ZONE,
     ADD COLUMN IF NOT EXISTS reply_deleted_by VARCHAR(100),
     ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITHOUT TIME ZONE,
-    ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(100);
+    ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITHOUT TIME ZONE
+        NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
 COMMENT ON COLUMN feedback.reply IS '管理员回复内容';
 COMMENT ON COLUMN feedback.replied_by IS '回复管理员的微信小程序用户唯一标识';
@@ -133,11 +135,73 @@ COMMENT ON COLUMN feedback.reply_deleted_at IS '管理员回复逻辑删除时�
 COMMENT ON COLUMN feedback.reply_deleted_by IS '撤销回复的管理员用户唯一标识';
 COMMENT ON COLUMN feedback.deleted_at IS '反馈逻辑删除时间';
 COMMENT ON COLUMN feedback.deleted_by IS '删除反馈的管理员用户唯一标识';
+COMMENT ON COLUMN feedback.last_activity_at IS '会话最后活动时间';
 
-GRANT ALL PRIVILEGES ON roles, permissions, role_permissions, user_roles
+CREATE TABLE IF NOT EXISTS feedback_messages (
+    id SERIAL PRIMARY KEY,
+    feedback_id INTEGER NOT NULL REFERENCES feedback(id) ON DELETE CASCADE,
+    sender_type VARCHAR(20) NOT NULL,
+    sender_id VARCHAR(100) NOT NULL,
+    content TEXT NOT NULL,
+    legacy_key VARCHAR(100) UNIQUE,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE,
+    deleted_by VARCHAR(100)
+);
+
+COMMENT ON TABLE feedback_messages IS '反馈会话消息表';
+COMMENT ON COLUMN feedback_messages.id IS '反馈消息主键 ID';
+COMMENT ON COLUMN feedback_messages.feedback_id IS '所属反馈会话 ID';
+COMMENT ON COLUMN feedback_messages.sender_type IS '发送方类型：user 或 admin';
+COMMENT ON COLUMN feedback_messages.sender_id IS '发送方微信小程序用户唯一标识';
+COMMENT ON COLUMN feedback_messages.content IS '消息内容';
+COMMENT ON COLUMN feedback_messages.legacy_key IS '旧字段迁移唯一键';
+COMMENT ON COLUMN feedback_messages.created_at IS '消息发送时间';
+COMMENT ON COLUMN feedback_messages.deleted_at IS '消息逻辑删除时间';
+COMMENT ON COLUMN feedback_messages.deleted_by IS '删除消息的管理员用户唯一标识';
+
+CREATE INDEX IF NOT EXISTS ix_feedback_messages_feedback_id
+    ON feedback_messages (feedback_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_feedback_messages_legacy_key
+    ON feedback_messages (legacy_key);
+
+INSERT INTO feedback_messages (
+    feedback_id, sender_type, sender_id, content, legacy_key, created_at
+)
+SELECT
+    id, 'user', mini_user_id, content, 'feedback:' || id || ':content', created_at
+FROM feedback
+ON CONFLICT (legacy_key) DO NOTHING;
+
+INSERT INTO feedback_messages (
+    feedback_id, sender_type, sender_id, content, legacy_key, created_at,
+    deleted_at, deleted_by
+)
+SELECT
+    id, 'admin', COALESCE(replied_by, 'legacy-admin'), reply,
+    'feedback:' || id || ':reply', COALESCE(replied_at, created_at),
+    reply_deleted_at, reply_deleted_by
+FROM feedback
+WHERE reply IS NOT NULL
+ON CONFLICT (legacy_key) DO NOTHING;
+
+UPDATE feedback f
+SET last_activity_at = COALESCE(
+    (
+        SELECT MAX(fm.created_at)
+        FROM feedback_messages fm
+        WHERE fm.feedback_id = f.id
+          AND fm.deleted_at IS NULL
+    ),
+    f.created_at
+);
+
+GRANT ALL PRIVILEGES ON
+    roles, permissions, role_permissions, user_roles, feedback_messages
     TO blood_pressure;
 GRANT USAGE, SELECT, UPDATE ON SEQUENCE
-    role_permissions_id_seq, user_roles_id_seq TO blood_pressure;
+    role_permissions_id_seq, user_roles_id_seq, feedback_messages_id_seq
+    TO blood_pressure;
 
 -- 仅在数据库中初始化管理员身份，业务代码不包含任何管理员 ID 特判。
 \ir grant_admin_by_archive_id.sql

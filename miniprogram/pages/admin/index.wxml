@@ -45,28 +45,44 @@
         <view class="feedback-status status-{{item.status}}">{{item.statusText}}</view>
       </view>
       <view class="feedback-time">{{item.displayTime}}</view>
-      <view class="feedback-content">{{item.content}}</view>
-      <view wx:if="{{item.reply}}" class="feedback-reply">已回复：{{item.reply}}</view>
+      <view class="feedback-content">
+        {{item.content}}
+      </view>
+      <view wx:if="{{item.conversationMessages.length}}" class="admin-conversation">
+        <view
+          wx:for="{{item.conversationMessages}}"
+          wx:key="id"
+          wx:for-item="message"
+          class="admin-message {{message.sender_type === 'admin' ? 'admin' : 'user'}}"
+        >
+          <view class="admin-message-head">
+            <text>{{message.sender_type === "admin" ? "管理员" : "用户"}}</text>
+            <text>{{message.displayTime}}</text>
+          </view>
+          <view class="admin-message-content">{{message.content}}</view>
+          <button
+            wx:if="{{message.sender_type === 'admin' && message.can_revoke}}"
+            class="message-revoke-btn"
+            data-id="{{item.id}}"
+            data-message-id="{{message.id}}"
+            loading="{{revokingReplyId === message.id}}"
+            bindtap="revokeFeedbackReply"
+          >撤销此回复</button>
+        </view>
+      </view>
       <view class="member-actions">
         <button
           class="feedback-delete-btn"
           data-id="{{item.id}}"
           loading="{{deletingFeedbackId === item.id}}"
           bindtap="deleteFeedback"
-        >删除反馈</button>
-        <button
-          wx:if="{{item.reply}}"
-          class="reply-revoke-btn"
-          data-id="{{item.id}}"
-          loading="{{revokingReplyId === item.id}}"
-          bindtap="revokeFeedbackReply"
-        >撤销回复</button>
+        >删除</button>
         <button
           class="reply-btn"
           data-id="{{item.id}}"
           loading="{{replyingId === item.id}}"
           bindtap="replyFeedback"
-        >{{item.reply ? "修改回复" : "回复"}}</button>
+        >回复</button>
       </view>
     </view>
 

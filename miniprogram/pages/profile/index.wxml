@@ -120,15 +120,71 @@
     </view>
     <view wx:if="{{feedbackLoading}}" class="history-empty">加载中...</view>
     <view wx:elif="{{!feedbackHistory.length}}" class="history-empty">暂无历史反馈</view>
-    <view wx:for="{{feedbackHistory}}" wx:key="id" class="history-item">
+    <view
+      wx:for="{{feedbackHistory}}"
+      wx:key="id"
+      wx:for-item="item"
+      wx:for-index="feedbackIndex"
+      class="history-item"
+    >
       <view class="history-item-top">
         <view class="history-time">{{item.displayTime}}</view>
-        <view class="history-status status-{{item.statusStyle}}">{{item.statusText}}</view>
+        <view class="history-top-right">
+          <view class="history-status status-{{item.statusStyle}}">{{item.statusText}}</view>
+        </view>
       </view>
       <view class="history-content">{{item.content}}</view>
-      <view wx:if="{{item.reply}}" class="history-reply">
-        <view class="history-reply-label">管理员回复</view>
-        <view>{{item.reply}}</view>
+      <view class="history-actions">
+        <button
+          class="history-delete-btn"
+          data-id="{{item.id}}"
+          loading="{{deletingFeedbackId === item.id}}"
+          bindtap="deleteFeedback"
+        >删除</button>
+        <view
+          class="conversation-toggle"
+          data-index="{{feedbackIndex}}"
+          bindtap="toggleFeedbackConversation"
+        >
+          <text wx:if="{{item.conversationExpanded}}">收起对话</text>
+          <text wx:else>查看对话（{{item.messages.length}}）</text>
+        </view>
+      </view>
+      <view wx:if="{{item.conversationExpanded}}" class="conversation-panel">
+        <view
+          wx:for="{{item.messages}}"
+          wx:key="id"
+          wx:for-item="message"
+          class="conversation-message {{message.sender_type === 'admin' ? 'admin' : 'user'}}"
+        >
+          <view class="conversation-sender">
+            {{message.sender_type === "admin" ? "管理员" : "我"}}
+            <text>{{message.displayTime}}</text>
+          </view>
+          <view class="conversation-content">{{message.content}}</view>
+          <button
+            wx:if="{{message.can_delete}}"
+            class="conversation-delete-btn"
+            data-feedback-id="{{item.id}}"
+            data-message-id="{{message.id}}"
+            loading="{{deletingMessageId === message.id}}"
+            bindtap="deleteFeedbackMessage"
+          >删除</button>
+        </view>
+        <textarea
+          class="conversation-input"
+          maxlength="2000"
+          value="{{item.replyDraft}}"
+          data-index="{{feedbackIndex}}"
+          bindinput="handleConversationInput"
+          placeholder="继续补充问题或回复管理员"
+        ></textarea>
+        <button
+          class="conversation-send-btn"
+          data-index="{{feedbackIndex}}"
+          loading="{{item.sendingMessage}}"
+          bindtap="sendFeedbackMessage"
+        >发送消息</button>
       </view>
     </view>
   </view>
