@@ -110,6 +110,26 @@ Page({
     }
   },
 
+  async verifyAiHealthReportPermission() {
+    try {
+      const access = await getApp().refreshAccess();
+      const allowed = (access.permissions || []).includes("ai_health_report");
+      this.setData({ canAiHealthReport: allowed });
+      if (!allowed) {
+        wx.showModal({
+          title: "暂无使用权限",
+          content: "仅拥有“AI 档案分析”权限的用户可以使用 AI 智能分析。",
+          showCancel: false,
+          confirmText: "我知道了"
+        });
+      }
+      return allowed;
+    } catch (error) {
+      wx.showToast({ title: "权限校验失败，请稍后重试", icon: "none" });
+      return false;
+    }
+  },
+
   onPullDownRefresh() {
     this.loadOverview().finally(() => wx.stopPullDownRefresh());
   },
@@ -325,24 +345,14 @@ Page({
     });
   },
 
-  generateAiHealthReport() {
+  async generateAiHealthReport() {
     if (this.data.aiReportLoading) return;
-    if (!this.data.canAiHealthReport) {
-      wx.showModal({
-        title: "会员功能",
-        content: "当前账号暂无 AI 档案分析权限，请前往“我的”查看可开通的会员服务。",
-        confirmText: "前往查看",
-        success: ({ confirm }) => {
-          if (confirm) wx.switchTab({ url: "/pages/profile/index" });
-        }
-      });
-      return;
-    }
+    if (!(await this.verifyAiHealthReportPermission())) return;
     if (!this.ensureArchiveReady()) return;
     wx.showModal({
-      title: "生成 AI 健康报告",
-      content: "将把个人档案、历史血压和测量备注发送至 DeepSeek V4 Pro 分析。是否继续？",
-      confirmText: "确认分析",
+      title: "授权 AI 智能分析",
+      content: "AI 将读取你的个人档案、全部历史记录及测量备注，仅用于生成本次健康分析，不会额外保存或向他人泄露。是否允许？",
+      confirmText: "允许分析",
       success: async ({ confirm }) => {
         if (!confirm) return;
         this.setData({ aiReportLoading: true });

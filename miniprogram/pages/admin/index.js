@@ -6,9 +6,8 @@ Page({
     loading: false,
     accessDenied: false,
     adminMode: "feedback",
-    status: "",
+    status: "pending",
     statusOptions: [
-      { value: "", label: "全部" },
       { value: "pending", label: "待处理" },
       { value: "resolved", label: "已处理" }
     ],
@@ -18,11 +17,15 @@ Page({
     total: 0,
     totalPages: 1,
     replyingId: 0,
-    roleUpdatingKey: "",
+    deletingFeedbackId: 0,
+    revokingReplyId: 0,
     rbacLoading: false,
     roles: [],
+    permissionAssignableRoles: [],
     assignableRoles: [],
     permissions: [],
+    roleCreateVisible: false,
+    permissionCreateVisible: false,
     newRole: {
       code: "",
       name: "",
@@ -34,6 +37,11 @@ Page({
       name: "",
       description: "",
       module: "general"
+    },
+    userGrant: {
+      archiveId: "",
+      roleCode: "",
+      roleName: ""
     },
     hasLoaded: false
   },
@@ -49,10 +57,12 @@ Page({
       tabBar.setData({ selected: 4 });
       if (tabBar.refreshAccessTabs) tabBar.refreshAccessTabs();
     }
-    if (this.data.hasLoaded) {
-      if (this.data.adminMode === "rbac") this.loadRbac();
-      else this.loadFeedback();
-    }
+    this.setData({
+      adminMode: "feedback",
+      status: "pending",
+      page: 1
+    });
+    if (this.data.hasLoaded) this.loadFeedback();
   },
 
   onPullDownRefresh() {
@@ -112,16 +122,25 @@ Page({
 
   normalizeRbac(data) {
     const permissions = data.permissions || [];
+    const enabledPermissions = permissions.filter(
+      (permission) => permission.enabled
+    );
+    const normalizedRoles = (data.roles || []).map((role) => ({
+      ...role,
+      expanded: false,
+      permissionItems: enabledPermissions.map((permission) => ({
+        ...permission,
+        bound: (role.permission_codes || []).includes(permission.code)
+      }))
+    }));
     return {
-      permissions,
-      roles: (data.roles || []).map((role) => ({
-        ...role,
-        permissionItems: permissions.map((permission) => ({
-          ...permission,
-          bound: (role.permission_codes || []).includes(permission.code)
-        }))
-      })),
-      assignableRoles: (data.roles || []).filter((role) => role.enabled)
+      roles: normalizedRoles,
+      permissionAssignableRoles: normalizedRoles.filter((role) => role.enabled),
+      assignableRoles: (data.roles || []).filter((role) => role.enabled),
+      permissions: permissions.map((permission) => ({
+        ...permission,
+        expanded: false
+      }))
     };
   },
 
@@ -133,7 +152,22 @@ Page({
         url: "/admin/rbac",
         silent: true
       });
-      this.setData(this.normalizeRbac(response.data || {}));
+      const normalized = this.normalizeRbac(response.data || {});
+      const selectedRoleStillEnabled = normalized.assignableRoles.some(
+        (role) => role.code === this.data.userGrant.roleCode
+      );
+      this.setData({
+        ...normalized,
+        ...(!selectedRoleStillEnabled
+          ? {
+              userGrant: {
+                ...this.data.userGrant,
+                roleCode: "",
+                roleName: ""
+              }
+            }
+          : {})
+      });
     } catch (error) {
       if (error.statusCode === 403) {
         this.setData({ accessDenied: true });
@@ -150,17 +184,115 @@ Page({
     const field = event.currentTarget.dataset.field;
     const index = Number(event.currentTarget.dataset.index);
     const value = event.detail.value;
-    if (scope === "newRole" || scope === "newPermission") {
+    if (
+      scope === "newRole" ||
+      scope === "newPermission" ||
+      scope === "userGrant"
+    ) {
       this.setData({ [`${scope}.${field}`]: value });
       return;
     }
     this.setData({ [`${scope}[${index}].${field}`]: value });
   },
 
-  handleRbacEnabled(event) {
+  changeGrantRole(event) {
+    const index = Number(event.detail.value);
+    const role = this.data.assignableRoles[index];
+    this.setData({
+      "userGrant.roleCode": role ? role.code : "",
+      "userGrant.roleName": role ? role.name : ""
+    });
+  },
+
+  grantUserRole() {
+    const archiveId = this.data.userGrant.archiveId.trim();
+    const role = this.data.userGrant.roleCode;
+    if (!archiveId || !role) {
+      wx.showToast({ title: "请填写档案 ID 并选择角色", icon: "none" });
+      return;
+    }
+    const selectedRole = this.data.assignableRoles.find(
+      (item) => item.code === role
+    );
+    wx.showModal({
+      title: "确认用户授权",
+      content: `确认给档案 ID ${archiveId} 授予${selectedRole ? selectedRole.name : role}角色？`,
+      confirmText: "确认授权",
+      success: async ({ confirm }) => {
+        if (!confirm) return;
+        await request({
+          url: `/admin/users/${archiveId}/role`,
+          method: "PUT",
+          data: { role }
+        });
+        this.setData({
+          userGrant: { archiveId: "", roleCode: "", roleName: "" }
+        });
+        wx.showToast({ title: "授权成功", icon: "success" });
+      }
+    });
+  },
+
+  openRoleCreate() {
+    this.setData({ roleCreateVisible: true });
+  },
+
+  closeRoleCreate() {
+    this.setData({ roleCreateVisible: false });
+  },
+
+  openPermissionCreate() {
+    this.setData({ permissionCreateVisible: true });
+  },
+
+  closePermissionCreate() {
+    this.setData({ permissionCreateVisible: false });
+  },
+
+  preventModalClose() {},
+
+  async handleRbacEnabled(event) {
     const scope = event.currentTarget.dataset.scope;
     const index = Number(event.currentTarget.dataset.index);
-    this.setData({ [`${scope}[${index}].enabled`]: event.detail.value });
+    const enabled = event.detail.value;
+    this.setData({ [`${scope}[${index}].enabled`]: enabled });
+    const item = this.data[scope][index];
+    try {
+      if (scope === "roles") {
+        await request({
+          url: `/admin/roles/${item.code}`,
+          method: "PUT",
+          data: {
+            name: item.name.trim(),
+            description: item.description ? item.description.trim() : null,
+            rank: Number(item.rank) || 0,
+            enabled
+          }
+        });
+      } else {
+        await request({
+          url: `/admin/permissions/${item.code}`,
+          method: "PUT",
+          data: {
+            name: item.name.trim(),
+            description: item.description ? item.description.trim() : null,
+            module: item.module.trim() || "general",
+            enabled
+          }
+        });
+      }
+      wx.showToast({ title: enabled ? "已启用" : "已停用", icon: "success" });
+      await this.loadRbac();
+    } catch (error) {
+      await this.loadRbac();
+    }
+  },
+
+  toggleRbacItem(event) {
+    const scope = event.currentTarget.dataset.scope;
+    const index = Number(event.currentTarget.dataset.index);
+    const current = Boolean(this.data[scope][index].expanded);
+    this.setData({ [`${scope}[${index}].expanded`]: !current });
   },
 
   async createRole() {
@@ -182,7 +314,8 @@ Page({
       }
     });
     this.setData({
-      newRole: { code: "", name: "", description: "", rank: 0 }
+      newRole: { code: "", name: "", description: "", rank: 0 },
+      roleCreateVisible: false
     });
     wx.showToast({ title: "角色已创建", icon: "success" });
     await this.loadRbac();
@@ -229,7 +362,8 @@ Page({
         name: "",
         description: "",
         module: "general"
-      }
+      },
+      permissionCreateVisible: false
     });
     wx.showToast({ title: "功能权限已创建", icon: "success" });
     await this.loadRbac();
@@ -302,35 +436,50 @@ Page({
     });
   },
 
-  updateRole(event) {
-    const userId = event.currentTarget.dataset.userId;
-    const role = event.currentTarget.dataset.role;
-    const roleNames = {
-      vip: "VIP 普通会员",
-      svip: "SVIP 超级会员",
-      admin: "管理员"
-    };
-    const configuredRole = this.data.roles.find((item) => item.code === role);
-    const roleName = configuredRole
-      ? configuredRole.name
-      : (roleNames[role] || role);
+  deleteFeedback(event) {
+    const id = Number(event.currentTarget.dataset.id);
     wx.showModal({
-      title: `授予${roleName}`,
-      content: `确认给档案 ID ${userId} 授予${roleName}角色？`,
-      confirmText: "确认授予",
+      title: "删除反馈",
+      content: "确定删除其他人的反馈信息？删除后该反馈将不再展示，但系统会保留删除记录。",
+      confirmText: "确定删除",
+      confirmColor: "#E5484D",
       success: async ({ confirm }) => {
         if (!confirm) return;
-        const key = `${userId}:${role}`;
-        this.setData({ roleUpdatingKey: key });
+        this.setData({ deletingFeedbackId: id });
         try {
           await request({
-            url: `/admin/users/${userId}/role`,
-            method: "PUT",
-            data: { role }
+            url: `/admin/feedback/${id}`,
+            method: "DELETE"
           });
-          wx.showToast({ title: "会员已开通", icon: "success" });
+          wx.showToast({ title: "反馈已删除", icon: "success" });
+          await this.loadFeedback();
         } finally {
-          this.setData({ roleUpdatingKey: "" });
+          this.setData({ deletingFeedbackId: 0 });
+        }
+      }
+    });
+  },
+
+  revokeFeedbackReply(event) {
+    const id = Number(event.currentTarget.dataset.id);
+    wx.showModal({
+      title: "撤销管理员回复",
+      content: "确定撤销这条管理员回复？撤销后用户将不再看到该回复，系统会保留撤销记录。",
+      confirmText: "确定撤销",
+      confirmColor: "#E5484D",
+      success: async ({ confirm }) => {
+        if (!confirm) return;
+        this.setData({ revokingReplyId: id });
+        try {
+          await request({
+            url: `/admin/feedback/${id}/reply`,
+            method: "DELETE"
+          });
+          wx.showToast({ title: "回复已撤销", icon: "success" });
+          this.setData({ status: "pending", page: 1 });
+          await this.loadFeedback();
+        } finally {
+          this.setData({ revokingReplyId: 0 });
         }
       }
     });

@@ -147,6 +147,10 @@ def test_schema_contains_table_and_column_comments():
             "reply",
             "replied_by",
             "replied_at",
+            "reply_deleted_at",
+            "reply_deleted_by",
+            "deleted_at",
+            "deleted_by",
             "created_at",
         ),
         "roles": (

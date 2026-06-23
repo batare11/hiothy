@@ -143,6 +143,26 @@ Page({
     }
   },
 
+  async verifyCloudOcrPermission() {
+    try {
+      const access = await getApp().refreshAccess();
+      const allowed = (access.permissions || []).includes("cloud_ocr");
+      this.setData({ canCloudOcr: allowed });
+      if (!allowed) {
+        wx.showModal({
+          title: "暂无使用权限",
+          content: "仅拥有“AI 智能图片识别”权限的用户可以使用增强识别和智能识别。",
+          showCancel: false,
+          confirmText: "我知道了"
+        });
+      }
+      return allowed;
+    } catch (error) {
+      wx.showToast({ title: "权限校验失败，请稍后重试", icon: "none" });
+      return false;
+    }
+  },
+
   onHide() {
     this.setData({
       ocrEngine: "rapid",
@@ -163,20 +183,10 @@ Page({
     wx.navigateTo({ url: "/pages/health-record/index" });
   },
 
-  selectOcrEngine(event) {
+  async selectOcrEngine(event) {
     const engine = event.currentTarget.dataset.value;
     if (engine === this.data.ocrEngine) return;
-    if (engine !== "rapid" && !this.data.canCloudOcr) {
-      wx.showModal({
-        title: "会员功能",
-        content: "当前账号暂无 AI 智能图片识别权限，请前往“我的”查看可开通的会员服务。",
-        confirmText: "前往查看",
-        success: ({ confirm }) => {
-          if (confirm) wx.switchTab({ url: "/pages/profile/index" });
-        }
-      });
-      return;
-    }
+    if (engine !== "rapid" && !(await this.verifyCloudOcrPermission())) return;
     const cloudOcrPrompt = engine === "doubao"
       ? {
           title: "使用豆包增强识别",
@@ -207,8 +217,15 @@ Page({
     this.setData({ ocrEngine: engine });
   },
 
-  chooseImage() {
+  async chooseImage() {
     if (this.data.ocrLoading) return;
+    if (
+      this.data.ocrEngine !== "rapid" &&
+      !(await this.verifyCloudOcrPermission())
+    ) {
+      this.setData({ ocrEngine: "rapid", cloudOcrConsent: false });
+      return;
+    }
     wx.chooseMedia({
       count: 1,
       mediaType: ["image"],
@@ -223,6 +240,13 @@ Page({
   },
 
   async recognizeImage(imagePath) {
+    if (
+      this.data.ocrEngine !== "rapid" &&
+      !(await this.verifyCloudOcrPermission())
+    ) {
+      this.setData({ ocrEngine: "rapid", cloudOcrConsent: false });
+      return;
+    }
     this.setData({ ocrLoading: true, ocrNotice: "" });
     try {
       const response = await uploadImage(imagePath, this.data.ocrEngine);

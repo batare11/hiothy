@@ -310,6 +310,10 @@ CREATE TABLE IF NOT EXISTS feedback (
     reply TEXT,
     replied_by VARCHAR(100),
     replied_at TIMESTAMP WITHOUT TIME ZONE,
+    reply_deleted_at TIMESTAMP WITHOUT TIME ZONE,
+    reply_deleted_by VARCHAR(100),
+    deleted_at TIMESTAMP WITHOUT TIME ZONE,
+    deleted_by VARCHAR(100),
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -323,6 +327,10 @@ COMMENT ON COLUMN feedback.status IS
 COMMENT ON COLUMN feedback.reply IS '管理员回复内容';
 COMMENT ON COLUMN feedback.replied_by IS '回复管理员的微信小程序用户唯一标识';
 COMMENT ON COLUMN feedback.replied_at IS '管理员回复时间';
+COMMENT ON COLUMN feedback.reply_deleted_at IS '管理员回复逻辑删除时间';
+COMMENT ON COLUMN feedback.reply_deleted_by IS '撤销回复的管理员用户唯一标识';
+COMMENT ON COLUMN feedback.deleted_at IS '反馈逻辑删除时间';
+COMMENT ON COLUMN feedback.deleted_by IS '删除反馈的管理员用户唯一标识';
 COMMENT ON COLUMN feedback.created_at IS '反馈提交时间';
 
 CREATE INDEX IF NOT EXISTS ix_feedback_mini_user_id
@@ -357,11 +365,19 @@ ALTER TABLE messages
 ALTER TABLE feedback
     ADD COLUMN IF NOT EXISTS reply TEXT,
     ADD COLUMN IF NOT EXISTS replied_by VARCHAR(100),
-    ADD COLUMN IF NOT EXISTS replied_at TIMESTAMP WITHOUT TIME ZONE;
+    ADD COLUMN IF NOT EXISTS replied_at TIMESTAMP WITHOUT TIME ZONE,
+    ADD COLUMN IF NOT EXISTS reply_deleted_at TIMESTAMP WITHOUT TIME ZONE,
+    ADD COLUMN IF NOT EXISTS reply_deleted_by VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITHOUT TIME ZONE,
+    ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(100);
 
 COMMENT ON COLUMN feedback.reply IS '管理员回复内容';
 COMMENT ON COLUMN feedback.replied_by IS '回复管理员的微信小程序用户唯一标识';
 COMMENT ON COLUMN feedback.replied_at IS '管理员回复时间';
+COMMENT ON COLUMN feedback.reply_deleted_at IS '管理员回复逻辑删除时间';
+COMMENT ON COLUMN feedback.reply_deleted_by IS '撤销回复的管理员用户唯一标识';
+COMMENT ON COLUMN feedback.deleted_at IS '反馈逻辑删除时间';
+COMMENT ON COLUMN feedback.deleted_by IS '删除反馈的管理员用户唯一标识';
 
 ALTER TABLE roles
     ADD COLUMN IF NOT EXISTS rank INTEGER NOT NULL DEFAULT 0,

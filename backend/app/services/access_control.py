@@ -91,8 +91,8 @@ def require_permission(
     if access.allows(permission):
         return access
     messages = {
-        Permission.CLOUD_OCR: "当前账号暂无 AI 智能图片识别权限",
-        Permission.AI_HEALTH_REPORT: "当前账号暂无 AI 档案分析权限",
+        Permission.CLOUD_OCR: "仅拥有 AI 智能图片识别权限的用户可以使用该功能",
+        Permission.AI_HEALTH_REPORT: "仅拥有 AI 档案分析权限的用户可以使用该功能",
         Permission.FEEDBACK_MANAGE: "仅管理员可以管理反馈",
         Permission.ROLE_MANAGE: "仅管理员可以管理会员角色",
     }

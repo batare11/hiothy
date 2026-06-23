@@ -120,11 +120,19 @@ CREATE INDEX IF NOT EXISTS ix_user_roles_role_code
 ALTER TABLE feedback
     ADD COLUMN IF NOT EXISTS reply TEXT,
     ADD COLUMN IF NOT EXISTS replied_by VARCHAR(100),
-    ADD COLUMN IF NOT EXISTS replied_at TIMESTAMP WITHOUT TIME ZONE;
+    ADD COLUMN IF NOT EXISTS replied_at TIMESTAMP WITHOUT TIME ZONE,
+    ADD COLUMN IF NOT EXISTS reply_deleted_at TIMESTAMP WITHOUT TIME ZONE,
+    ADD COLUMN IF NOT EXISTS reply_deleted_by VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITHOUT TIME ZONE,
+    ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(100);
 
 COMMENT ON COLUMN feedback.reply IS '管理员回复内容';
 COMMENT ON COLUMN feedback.replied_by IS '回复管理员的微信小程序用户唯一标识';
 COMMENT ON COLUMN feedback.replied_at IS '管理员回复时间';
+COMMENT ON COLUMN feedback.reply_deleted_at IS '管理员回复逻辑删除时间';
+COMMENT ON COLUMN feedback.reply_deleted_by IS '撤销回复的管理员用户唯一标识';
+COMMENT ON COLUMN feedback.deleted_at IS '反馈逻辑删除时间';
+COMMENT ON COLUMN feedback.deleted_by IS '删除反馈的管理员用户唯一标识';
 
 GRANT ALL PRIVILEGES ON roles, permissions, role_permissions, user_roles
     TO blood_pressure;
