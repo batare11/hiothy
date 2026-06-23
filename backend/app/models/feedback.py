@@ -36,6 +36,18 @@ class Feedback(Base):
     replied_at: Mapped[datetime | None] = mapped_column(
         DateTime, comment="管理员回复时间"
     )
+    reply_deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime, comment="管理员回复逻辑删除时间"
+    )
+    reply_deleted_by: Mapped[str | None] = mapped_column(
+        String(100), comment="撤销回复的管理员用户唯一标识"
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime, comment="反馈逻辑删除时间"
+    )
+    deleted_by: Mapped[str | None] = mapped_column(
+        String(100), comment="删除反馈的管理员用户唯一标识"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),

@@ -1,21 +1,21 @@
 <view class="page admin-page">
-  <view class="admin-hero">
-    <view class="admin-title">管理中心</view>
-    <view class="admin-desc">管理反馈、角色和功能权限</view>
-    <view wx:if="{{adminMode === 'feedback'}}" class="admin-total">共 {{total}} 条反馈</view>
-  </view>
-
   <view class="admin-mode-tabs">
     <view
       class="admin-mode-tab {{adminMode === 'feedback' ? 'active' : ''}}"
       data-mode="feedback"
       bindtap="changeAdminMode"
-    >反馈管理</view>
+    >
+      <text class="mode-tab-icon">✉</text>
+      <text>反馈管理</text>
+    </view>
     <view
       class="admin-mode-tab {{adminMode === 'rbac' ? 'active' : ''}}"
       data-mode="rbac"
       bindtap="changeAdminMode"
-    >权限配置</view>
+    >
+      <text class="mode-tab-icon">◆</text>
+      <text>权限配置</text>
+    </view>
   </view>
 
   <view wx:if="{{accessDenied}}" class="card denied-card">
@@ -49,23 +49,18 @@
       <view wx:if="{{item.reply}}" class="feedback-reply">已回复：{{item.reply}}</view>
       <view class="member-actions">
         <button
-          wx:for="{{assignableRoles}}"
-          wx:key="code"
-          wx:for-item="role"
-          class="role-btn role-{{role.code}}"
-          data-user-id="{{item.user_id}}"
-          data-role="{{role.code}}"
-          loading="{{roleUpdatingKey === item.user_id + ':' + role.code}}"
-          bindtap="updateRole"
-        >授予 {{role.name}}</button>
+          class="feedback-delete-btn"
+          data-id="{{item.id}}"
+          loading="{{deletingFeedbackId === item.id}}"
+          bindtap="deleteFeedback"
+        >删除反馈</button>
         <button
-          wx:if="{{!assignableRoles.length}}"
-          class="role-btn"
-          data-user-id="{{item.user_id}}"
-          data-role="vip"
-          loading="{{roleUpdatingKey === item.user_id + ':vip'}}"
-          bindtap="updateRole"
-        >开通 VIP</button>
+          wx:if="{{item.reply}}"
+          class="reply-revoke-btn"
+          data-id="{{item.id}}"
+          loading="{{revokingReplyId === item.id}}"
+          bindtap="revokeFeedbackReply"
+        >撤销回复</button>
         <button
           class="reply-btn"
           data-id="{{item.id}}"
@@ -86,41 +81,15 @@
     <view wx:if="{{rbacLoading}}" class="loading">权限配置加载中...</view>
 
     <block wx:else>
-      <view class="card rbac-create-card">
-        <view class="rbac-section-title">新增角色</view>
-        <view class="rbac-form-grid">
-          <input
-            value="{{newRole.code}}"
-            data-scope="newRole"
-            data-field="code"
-            bindinput="handleRbacInput"
-            placeholder="角色编码，如 doctor"
-          />
-          <input
-            value="{{newRole.name}}"
-            data-scope="newRole"
-            data-field="name"
-            bindinput="handleRbacInput"
-            placeholder="角色名称"
-          />
-          <input
-            value="{{newRole.rank}}"
-            type="number"
-            data-scope="newRole"
-            data-field="rank"
-            bindinput="handleRbacInput"
-            placeholder="优先级"
-          />
-          <input
-            class="wide"
-            value="{{newRole.description}}"
-            data-scope="newRole"
-            data-field="description"
-            bindinput="handleRbacInput"
-            placeholder="角色说明"
-          />
+      <view class="rbac-sections">
+      <view class="rbac-section role-management-section">
+      <view class="rbac-zone-heading role-zone-heading">
+        <view class="rbac-zone-index">3</view>
+        <view class="rbac-zone-content">
+          <view class="rbac-zone-title">角色管理</view>
+          <view class="rbac-zone-desc">创建角色并维护名称、优先级和启用状态</view>
         </view>
-        <button class="rbac-create-btn" bindtap="createRole">创建角色</button>
+        <button class="zone-add-btn role-add-btn" bindtap="openRoleCreate">新增角色</button>
       </view>
 
       <view
@@ -132,99 +101,86 @@
       >
         <view class="rbac-item-heading">
           <view>
-            <view class="rbac-code">{{role.code}}</view>
-            <view class="rbac-kind">角色</view>
+            <view class="rbac-summary-name">{{role.name}}</view>
+            <view class="rbac-kind">角色编码：{{role.code}}</view>
           </view>
-          <switch
-            checked="{{role.enabled}}"
-            data-scope="roles"
+          <view class="rbac-summary-actions">
+            <view class="rbac-enabled">
+              <text>启用</text>
+              <switch
+                checked="{{role.enabled}}"
+                data-scope="roles"
+                data-index="{{roleIndex}}"
+                bindchange="handleRbacEnabled"
+                color="#1677FF"
+              />
+            </view>
+            <view
+              class="rbac-expand-btn {{role.expanded ? 'expanded' : ''}}"
+              data-scope="roles"
+              data-index="{{roleIndex}}"
+              bindtap="toggleRbacItem"
+            >⌄</view>
+          </view>
+        </view>
+        <view wx:if="{{role.expanded}}" class="rbac-edit-panel">
+          <view class="rbac-field">
+            <view class="rbac-field-label">角色名称</view>
+            <input
+              class="rbac-input"
+              value="{{role.name}}"
+              data-scope="roles"
+              data-index="{{roleIndex}}"
+              data-field="name"
+              bindinput="handleRbacInput"
+              placeholder="角色名称"
+            />
+          </view>
+          <view class="rbac-field">
+            <view class="rbac-field-label">角色说明</view>
+            <input
+              class="rbac-input"
+              value="{{role.description}}"
+              data-scope="roles"
+              data-index="{{roleIndex}}"
+              data-field="description"
+              bindinput="handleRbacInput"
+              placeholder="角色说明"
+            />
+          </view>
+          <view class="rbac-field">
+            <view class="rbac-field-label">角色优先级</view>
+            <input
+              class="rbac-input rank-input"
+              type="number"
+              value="{{role.rank}}"
+              data-scope="roles"
+              data-index="{{roleIndex}}"
+              data-field="rank"
+              bindinput="handleRbacInput"
+              placeholder="展示优先级"
+            />
+          </view>
+          <button
+            class="rbac-save-btn"
             data-index="{{roleIndex}}"
-            bindchange="handleRbacEnabled"
-            color="#1677FF"
-          />
+            bindtap="saveRole"
+          >更新该角色</button>
         </view>
-        <input
-          class="rbac-input"
-          value="{{role.name}}"
-          data-scope="roles"
-          data-index="{{roleIndex}}"
-          data-field="name"
-          bindinput="handleRbacInput"
-          placeholder="角色名称"
-        />
-        <input
-          class="rbac-input"
-          value="{{role.description}}"
-          data-scope="roles"
-          data-index="{{roleIndex}}"
-          data-field="description"
-          bindinput="handleRbacInput"
-          placeholder="角色说明"
-        />
-        <input
-          class="rbac-input rank-input"
-          type="number"
-          value="{{role.rank}}"
-          data-scope="roles"
-          data-index="{{roleIndex}}"
-          data-field="rank"
-          bindinput="handleRbacInput"
-          placeholder="展示优先级"
-        />
-        <view class="binding-title">已绑定功能（点击切换）</view>
-        <view class="permission-chips">
-          <view
-            wx:for="{{role.permissionItems}}"
-            wx:key="code"
-            wx:for-item="permission"
-            class="permission-chip {{permission.bound ? 'bound' : ''}}"
-            data-role="{{role.code}}"
-            data-permission="{{permission.code}}"
-            data-bound="{{permission.bound}}"
-            bindtap="toggleRolePermission"
-          >{{permission.name}}</view>
-        </view>
-        <button
-          class="rbac-save-btn"
-          data-index="{{roleIndex}}"
-          bindtap="saveRole"
-        >保存角色</button>
+      </view>
       </view>
 
-      <view class="card rbac-create-card">
-        <view class="rbac-section-title">新增功能权限</view>
-        <view class="rbac-form-grid">
-          <input
-            value="{{newPermission.code}}"
-            data-scope="newPermission"
-            data-field="code"
-            bindinput="handleRbacInput"
-            placeholder="权限编码，如 report_export"
-          />
-          <input
-            value="{{newPermission.name}}"
-            data-scope="newPermission"
-            data-field="name"
-            bindinput="handleRbacInput"
-            placeholder="权限名称"
-          />
-          <input
-            value="{{newPermission.module}}"
-            data-scope="newPermission"
-            data-field="module"
-            bindinput="handleRbacInput"
-            placeholder="所属模块"
-          />
-          <input
-            class="wide"
-            value="{{newPermission.description}}"
-            data-scope="newPermission"
-            data-field="description"
-            bindinput="handleRbacInput"
-            placeholder="权限说明"
-          />
+      <view class="rbac-section permission-management-section">
+      <view class="rbac-zone-heading permission-zone-heading">
+        <view class="rbac-zone-index">4</view>
+        <view class="rbac-zone-content">
+          <view class="rbac-zone-title">功能权限管理</view>
+          <view class="rbac-zone-desc">维护功能编码、所属模块和启用状态</view>
         </view>
-        <button class="rbac-create-btn" bindtap="createPermission">创建功能权限</button>
+        <button
+          class="zone-add-btn permission-add-btn"
+          bindtap="openPermissionCreate"
+        >新增权限</button>
       </view>
 
       <view
@@ -236,50 +192,268 @@
       >
         <view class="rbac-item-heading">
           <view>
-            <view class="rbac-code">{{permission.code}}</view>
-            <view class="rbac-kind">功能权限 · {{permission.module}}</view>
+            <view class="rbac-summary-name">{{permission.name}}</view>
+            <view class="rbac-kind">权限编码：{{permission.code}}</view>
           </view>
-          <switch
-            checked="{{permission.enabled}}"
-            data-scope="permissions"
-            data-index="{{permissionIndex}}"
-            bindchange="handleRbacEnabled"
-            color="#1677FF"
-          />
+          <view class="rbac-summary-actions">
+            <view class="rbac-enabled">
+              <text>启用</text>
+              <switch
+                checked="{{permission.enabled}}"
+                data-scope="permissions"
+                data-index="{{permissionIndex}}"
+                bindchange="handleRbacEnabled"
+                color="#1677FF"
+              />
+            </view>
+            <view
+              class="rbac-expand-btn {{permission.expanded ? 'expanded' : ''}}"
+              data-scope="permissions"
+              data-index="{{permissionIndex}}"
+              bindtap="toggleRbacItem"
+            >⌄</view>
+          </view>
         </view>
+        <view wx:if="{{permission.expanded}}" class="rbac-edit-panel">
+          <view class="rbac-field">
+            <view class="rbac-field-label">权限名称</view>
+            <input
+              class="rbac-input"
+              value="{{permission.name}}"
+              data-scope="permissions"
+              data-index="{{permissionIndex}}"
+              data-field="name"
+              bindinput="handleRbacInput"
+              placeholder="权限名称"
+            />
+          </view>
+          <view class="rbac-field">
+            <view class="rbac-field-label">所属模块</view>
+            <input
+              class="rbac-input"
+              value="{{permission.module}}"
+              data-scope="permissions"
+              data-index="{{permissionIndex}}"
+              data-field="module"
+              bindinput="handleRbacInput"
+              placeholder="所属模块"
+            />
+          </view>
+          <view class="rbac-field">
+            <view class="rbac-field-label">权限说明</view>
+            <input
+              class="rbac-input"
+              value="{{permission.description}}"
+              data-scope="permissions"
+              data-index="{{permissionIndex}}"
+              data-field="description"
+              bindinput="handleRbacInput"
+              placeholder="权限说明"
+            />
+          </view>
+          <button
+            class="rbac-save-btn"
+            data-index="{{permissionIndex}}"
+            bindtap="savePermission"
+          >更新该功能</button>
+        </view>
+      </view>
+      </view>
+
+      <view class="rbac-section role-binding-section">
+      <view class="rbac-zone-heading binding-zone-heading">
+        <view class="rbac-zone-index">1</view>
+        <view>
+          <view class="rbac-zone-title">角色权限分配</view>
+          <view class="rbac-zone-desc">蓝色表示已绑定，点击功能标签即可绑定或解绑</view>
+        </view>
+      </view>
+
+      <view
+        wx:for="{{permissionAssignableRoles}}"
+        wx:key="code"
+        wx:for-item="role"
+        class="card binding-card"
+      >
+        <view class="binding-role-heading">
+          <view>
+            <view class="binding-role-name">{{role.name}}</view>
+            <view class="binding-role-code">{{role.code}}</view>
+          </view>
+          <view class="binding-count">
+            已绑定 {{role.permission_codes.length}} 项
+          </view>
+        </view>
+        <view class="permission-chips">
+          <view
+            wx:for="{{role.permissionItems}}"
+            wx:key="code"
+            wx:for-item="permission"
+            class="permission-chip {{permission.bound ? 'bound' : ''}}"
+            data-role="{{role.code}}"
+            data-permission="{{permission.code}}"
+            data-bound="{{permission.bound}}"
+            bindtap="toggleRolePermission"
+          >
+            <text class="permission-chip-state">{{permission.bound ? "✓" : "＋"}}</text>
+            {{permission.name}}
+          </view>
+        </view>
+        <view wx:if="{{!role.permissionItems.length}}" class="binding-empty">
+          暂无可分配的功能权限
+        </view>
+      </view>
+      <view wx:if="{{!permissionAssignableRoles.length}}" class="card binding-empty-card">
+        暂无启用中的角色，请先在角色管理中启用角色
+      </view>
+      </view>
+
+      <view class="rbac-section user-grant-section">
+      <view class="rbac-zone-heading user-grant-zone-heading">
+        <view class="rbac-zone-index">2</view>
+        <view class="rbac-zone-content">
+          <view class="rbac-zone-title">用户角色授权</view>
+          <view class="rbac-zone-desc">通过健康档案 ID 为用户分配角色</view>
+        </view>
+      </view>
+
+      <view class="card user-grant-card">
+        <view class="dialog-label">健康档案 ID</view>
         <input
-          class="rbac-input"
-          value="{{permission.name}}"
-          data-scope="permissions"
-          data-index="{{permissionIndex}}"
-          data-field="name"
+          class="rbac-input grant-user-input"
+          value="{{userGrant.archiveId}}"
+          data-scope="userGrant"
+          data-field="archiveId"
           bindinput="handleRbacInput"
-          placeholder="权限名称"
+          placeholder="请输入用户的 12 位健康档案 ID"
         />
-        <input
-          class="rbac-input"
-          value="{{permission.module}}"
-          data-scope="permissions"
-          data-index="{{permissionIndex}}"
-          data-field="module"
-          bindinput="handleRbacInput"
-          placeholder="所属模块"
-        />
-        <input
-          class="rbac-input"
-          value="{{permission.description}}"
-          data-scope="permissions"
-          data-index="{{permissionIndex}}"
-          data-field="description"
-          bindinput="handleRbacInput"
-          placeholder="权限说明"
-        />
-        <button
-          class="rbac-save-btn"
-          data-index="{{permissionIndex}}"
-          bindtap="savePermission"
-        >保存功能权限</button>
+        <view class="dialog-label grant-role-label">选择角色</view>
+        <picker
+          range="{{assignableRoles}}"
+          range-key="name"
+          bindchange="changeGrantRole"
+        >
+          <view class="grant-role-picker">
+            {{userGrant.roleName || "请选择需要授予的角色"}}
+          </view>
+        </picker>
+        <button class="rbac-save-btn" bindtap="grantUserRole">确认授权</button>
+      </view>
+      </view>
       </view>
     </block>
   </block>
+
+  <view
+    wx:if="{{roleCreateVisible}}"
+    class="modal-mask"
+    bindtap="closeRoleCreate"
+  >
+    <view class="role-create-dialog" catchtap="preventModalClose">
+      <view class="dialog-title">新增角色</view>
+      <view class="dialog-desc">创建后可在“角色权限分配”中配置功能权限</view>
+      <view class="dialog-field">
+        <view class="dialog-label">角色编码</view>
+        <input
+          value="{{newRole.code}}"
+          data-scope="newRole"
+          data-field="code"
+          bindinput="handleRbacInput"
+          placeholder="如 doctor，仅限小写字母、数字和下划线"
+        />
+      </view>
+      <view class="dialog-field">
+        <view class="dialog-label">角色名称</view>
+        <input
+          value="{{newRole.name}}"
+          data-scope="newRole"
+          data-field="name"
+          bindinput="handleRbacInput"
+          placeholder="请输入角色名称"
+        />
+      </view>
+      <view class="dialog-field">
+        <view class="dialog-label">角色说明</view>
+        <input
+          value="{{newRole.description}}"
+          data-scope="newRole"
+          data-field="description"
+          bindinput="handleRbacInput"
+          placeholder="简要描述该角色用途"
+        />
+      </view>
+      <view class="dialog-field">
+        <view class="dialog-label">角色优先级</view>
+        <input
+          value="{{newRole.rank}}"
+          type="number"
+          data-scope="newRole"
+          data-field="rank"
+          bindinput="handleRbacInput"
+          placeholder="默认 0"
+        />
+        <view class="rank-help">数值越大，用户同时拥有多个角色时越优先展示；默认填 0。</view>
+      </view>
+      <view class="dialog-actions">
+        <button class="dialog-cancel-btn" bindtap="closeRoleCreate">返回</button>
+        <button class="dialog-confirm-btn" bindtap="createRole">确认创建</button>
+      </view>
+    </view>
+  </view>
+
+  <view
+    wx:if="{{permissionCreateVisible}}"
+    class="modal-mask"
+    bindtap="closePermissionCreate"
+  >
+    <view class="role-create-dialog" catchtap="preventModalClose">
+      <view class="dialog-title">新增功能权限</view>
+      <view class="dialog-desc">创建后可在“角色权限分配”中绑定给不同角色</view>
+      <view class="dialog-field">
+        <view class="dialog-label">权限编码</view>
+        <input
+          value="{{newPermission.code}}"
+          data-scope="newPermission"
+          data-field="code"
+          bindinput="handleRbacInput"
+          placeholder="如 report_export，仅限小写字母、数字和下划线"
+        />
+      </view>
+      <view class="dialog-field">
+        <view class="dialog-label">权限名称</view>
+        <input
+          value="{{newPermission.name}}"
+          data-scope="newPermission"
+          data-field="name"
+          bindinput="handleRbacInput"
+          placeholder="请输入功能权限名称"
+        />
+      </view>
+      <view class="dialog-field">
+        <view class="dialog-label">所属模块</view>
+        <input
+          value="{{newPermission.module}}"
+          data-scope="newPermission"
+          data-field="module"
+          bindinput="handleRbacInput"
+          placeholder="如 ocr、archive、admin"
+        />
+        <view class="rank-help">用于对功能权限进行分类展示，不影响实际鉴权。</view>
+      </view>
+      <view class="dialog-field">
+        <view class="dialog-label">权限说明</view>
+        <input
+          value="{{newPermission.description}}"
+          data-scope="newPermission"
+          data-field="description"
+          bindinput="handleRbacInput"
+          placeholder="简要描述该功能权限用途"
+        />
+      </view>
+      <view class="dialog-actions">
+        <button class="dialog-cancel-btn" bindtap="closePermissionCreate">返回</button>
+        <button class="dialog-confirm-btn" bindtap="createPermission">确认创建</button>
+      </view>
+    </view>
+  </view>
 </view>

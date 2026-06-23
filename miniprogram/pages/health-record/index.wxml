@@ -13,6 +13,7 @@
       >
         <text class="hero-ai-icon">✦</text>
         <text>AI 智能分析</text>
+        <text class="hero-ai-badge">SVIP</text>
       </button>
     </view>
   </view>

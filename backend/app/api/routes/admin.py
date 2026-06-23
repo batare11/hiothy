@@ -290,14 +290,19 @@ def serialize_admin_feedback(
     feedback: Feedback,
     nickname: str | None = None,
 ) -> dict:
+    visible_reply = (
+        feedback.reply if feedback.reply_deleted_at is None else None
+    )
     return {
         "id": feedback.id,
         "user_id": public_user_id(feedback.mini_user_id)[-12:],
         "nickname": nickname or "微信用户",
         "content": feedback.content,
         "status": feedback.status,
-        "reply": feedback.reply,
-        "replied_at": feedback.replied_at,
+        "reply": visible_reply,
+        "replied_at": (
+            feedback.replied_at if visible_reply is not None else None
+        ),
         "created_at": feedback.created_at,
     }
 
@@ -315,7 +320,7 @@ def list_all_feedback(
     db: Session = Depends(get_db),
 ) -> dict:
     require_permission(db, mini_user_id, Permission.FEEDBACK_MANAGE)
-    filters = []
+    filters = [Feedback.deleted_at.is_(None)]
     if status_filter:
         filters.append(Feedback.status == status_filter)
     total = db.scalar(
@@ -357,11 +362,13 @@ def reply_feedback(
 ) -> dict:
     require_permission(db, mini_user_id, Permission.FEEDBACK_MANAGE)
     feedback = db.get(Feedback, feedback_id)
-    if feedback is None:
+    if feedback is None or feedback.deleted_at is not None:
         raise HTTPException(status_code=404, detail="反馈不存在")
     feedback.reply = payload.reply.strip()
     feedback.replied_by = mini_user_id
     feedback.replied_at = datetime.now()
+    feedback.reply_deleted_at = None
+    feedback.reply_deleted_by = None
     feedback.status = "resolved"
     db.commit()
     db.refresh(feedback)
@@ -370,6 +377,41 @@ def reply_feedback(
         "message": "回复成功",
         "data": serialize_admin_feedback(feedback),
     }
+
+
+@router.delete("/feedback/{feedback_id}")
+def delete_feedback(
+    feedback_id: int,
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_permission(db, mini_user_id, Permission.FEEDBACK_MANAGE)
+    feedback = db.get(Feedback, feedback_id)
+    if feedback is None or feedback.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="反馈不存在")
+    feedback.deleted_at = datetime.now()
+    feedback.deleted_by = mini_user_id
+    db.commit()
+    return {"code": 0, "message": "反馈已删除", "data": None}
+
+
+@router.delete("/feedback/{feedback_id}/reply")
+def revoke_feedback_reply(
+    feedback_id: int,
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    require_permission(db, mini_user_id, Permission.FEEDBACK_MANAGE)
+    feedback = db.get(Feedback, feedback_id)
+    if feedback is None or feedback.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="反馈不存在")
+    if feedback.reply is None or feedback.reply_deleted_at is not None:
+        raise HTTPException(status_code=400, detail="当前反馈没有可撤销的回复")
+    feedback.reply_deleted_at = datetime.now()
+    feedback.reply_deleted_by = mini_user_id
+    feedback.status = "pending"
+    db.commit()
+    return {"code": 0, "message": "管理员回复已撤销", "data": None}
 
 
 def find_user_by_archive_id(db: Session, archive_id: str) -> str:

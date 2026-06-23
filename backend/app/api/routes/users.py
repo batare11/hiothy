@@ -225,7 +225,10 @@ def list_feedback(
     mini_user_id: str = Depends(get_mini_user_id),
     db: Session = Depends(get_db),
 ) -> dict:
-    base = select(Feedback).where(Feedback.mini_user_id == mini_user_id)
+    base = select(Feedback).where(
+        Feedback.mini_user_id == mini_user_id,
+        Feedback.deleted_at.is_(None),
+    )
     total = db.scalar(
         select(func.count()).select_from(base.subquery())
     ) or 0
@@ -243,8 +246,14 @@ def list_feedback(
                     "id": item.id,
                     "content": item.content,
                     "status": item.status,
-                    "reply": item.reply,
-                    "replied_at": item.replied_at,
+                    "reply": (
+                        item.reply if item.reply_deleted_at is None else None
+                    ),
+                    "replied_at": (
+                        item.replied_at
+                        if item.reply_deleted_at is None
+                        else None
+                    ),
                     "created_at": item.created_at,
                 }
                 for item in items
