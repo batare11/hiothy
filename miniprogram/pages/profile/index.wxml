@@ -162,14 +162,14 @@
             <text>{{message.displayTime}}</text>
           </view>
           <view class="conversation-content">{{message.content}}</view>
-          <button
-            wx:if="{{message.can_delete}}"
-            class="conversation-delete-btn"
-            data-feedback-id="{{item.id}}"
-            data-message-id="{{message.id}}"
-            loading="{{deletingMessageId === message.id}}"
-            bindtap="deleteFeedbackMessage"
-          >删除</button>
+          <view wx:if="{{message.can_delete}}" class="conversation-delete-row">
+            <view
+              class="conversation-delete-btn"
+              data-feedback-id="{{item.id}}"
+              data-message-id="{{message.id}}"
+              bindtap="deleteFeedbackMessage"
+            >{{deletingMessageId === message.id ? "撤回中" : "撤回"}}</view>
+          </view>
         </view>
         <textarea
           class="conversation-input"

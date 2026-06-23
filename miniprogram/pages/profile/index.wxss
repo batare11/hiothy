@@ -499,23 +499,26 @@
   line-height: 1.55;
 }
 
-.conversation-delete-btn {
-  display: flex;
-  width: 82rpx;
-  height: 40rpx;
-  margin: 8rpx 0 0 auto;
-  padding: 0;
-  align-items: center;
-  justify-content: center;
-  color: #C93B40;
-  background: #FFF0F0;
-  border-radius: 8rpx;
-  font-size: 18rpx;
-  line-height: 1.2;
+.conversation-delete-row {
+  display: block;
+  width: 100%;
+  margin-top: 8rpx;
+  text-align: right;
 }
 
-.conversation-delete-btn::after {
-  border: none;
+.conversation-delete-btn {
+  display: inline-block;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  color: #C93B40;
+  background: transparent;
+  border-radius: 0;
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .conversation-input {

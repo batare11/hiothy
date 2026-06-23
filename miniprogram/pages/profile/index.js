@@ -332,9 +332,9 @@ Page({
     const messageId = Number(event.currentTarget.dataset.messageId);
     if (!feedbackId || !messageId || this.data.deletingMessageId) return;
     wx.showModal({
-      title: "删除消息",
-      content: "确定删除这条消息？删除后该消息将不再展示，且不能恢复。",
-      confirmText: "删除",
+      title: "撤回消息",
+      content: "确定撤回这条消息？撤回后该消息将不再展示，且不能恢复。",
+      confirmText: "撤回",
       confirmColor: "#E5484D",
       success: async ({ confirm }) => {
         if (!confirm) return;
@@ -344,7 +344,7 @@ Page({
             url: `/feedback/${feedbackId}/messages/${messageId}`,
             method: "DELETE"
           });
-          wx.showToast({ title: "消息已删除", icon: "success" });
+          wx.showToast({ title: "消息已撤回", icon: "success" });
           await this.loadFeedbackHistory();
         } finally {
           this.setData({ deletingMessageId: 0 });
