@@ -24,9 +24,12 @@
             {{unreadBadge}}
           </view>
         </view>
-        <view wx:else class="tab-icon profile-icon">
+        <view wx:elif="{{item.icon === 'profile'}}" class="tab-icon profile-icon">
           <view class="profile-head"></view>
           <view class="profile-body"></view>
+        </view>
+        <view wx:else class="tab-icon admin-icon">
+          <view class="admin-shield">管</view>
         </view>
       </view>
       <text class="tab-text">{{item.text}}</text>

@@ -5,8 +5,11 @@ from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_mini_user_id
 from app.core.config import settings
+from app.core.database import get_db
+from app.services.access_control import Permission, require_permission
 from app.services.ocr_providers import recognize_with_provider
 from app.services.ocr_providers.temp_files import resolve_temp_image
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/ocr", tags=["ocr"])
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
@@ -34,8 +37,11 @@ async def ocr_blood_pressure(
         default="rapid",
         pattern="^(rapid|doubao|glm|auto)$",
     ),
-    _: str = Depends(get_mini_user_id),
+    mini_user_id: str = Depends(get_mini_user_id),
+    db: Session = Depends(get_db),
 ) -> dict:
+    if engine != "rapid":
+        require_permission(db, mini_user_id, Permission.CLOUD_OCR)
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=415, detail="仅支持 JPG、PNG、WebP、BMP 图片")
     content = await file.read()

@@ -4,7 +4,8 @@
     "pages/analysis/index",
     "pages/health-record/index",
     "pages/messages/index",
-    "pages/profile/index"
+    "pages/profile/index",
+    "pages/admin/index"
   ],
   "window": {
     "navigationBarTitleText": "血压健康助手",
@@ -41,6 +42,10 @@
       {
         "pagePath": "pages/profile/index",
         "text": "个人中心"
+      },
+      {
+        "pagePath": "pages/admin/index",
+        "text": "管理"
       }
     ]
   },

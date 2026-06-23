@@ -163,3 +163,21 @@
   border-bottom: 0;
   border-radius: 18rpx 18rpx 0 0;
 }
+
+.admin-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-shield {
+  display: flex;
+  width: 34rpx;
+  height: 34rpx;
+  align-items: center;
+  justify-content: center;
+  border: 4rpx solid currentColor;
+  border-radius: 9rpx 9rpx 14rpx 14rpx;
+  font-size: 17rpx;
+  font-weight: 700;
+}

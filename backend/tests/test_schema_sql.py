@@ -4,6 +4,16 @@ from pathlib import Path
 SCHEMA_SQL = (
     Path(__file__).resolve().parents[1] / "scripts" / "schema.sql"
 ).read_text(encoding="utf-8")
+MEMBERSHIP_MIGRATION_SQL = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "migrate_membership_feedback.sql"
+).read_text(encoding="utf-8")
+GRANT_ADMIN_SQL = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "grant_admin_by_archive_id.sql"
+).read_text(encoding="utf-8")
 
 
 def test_schema_contains_all_business_tables():
@@ -13,8 +23,28 @@ def test_schema_contains_all_business_tables():
         "health_archives",
         "messages",
         "feedback",
+        "roles",
+        "permissions",
+        "role_permissions",
+        "user_roles",
     ):
         assert f"CREATE TABLE IF NOT EXISTS {table_name}" in SCHEMA_SQL
+
+
+def test_membership_migration_is_idempotent():
+    assert "CREATE TABLE IF NOT EXISTS roles" in MEMBERSHIP_MIGRATION_SQL
+    assert "CREATE TABLE IF NOT EXISTS user_roles" in MEMBERSHIP_MIGRATION_SQL
+    assert "CREATE TABLE IF NOT EXISTS permissions" in MEMBERSHIP_MIGRATION_SQL
+    assert "CREATE TABLE IF NOT EXISTS role_permissions" in MEMBERSHIP_MIGRATION_SQL
+    assert "ADD COLUMN IF NOT EXISTS reply" in MEMBERSHIP_MIGRATION_SQL
+    assert "ON CONFLICT (code) DO UPDATE" in MEMBERSHIP_MIGRATION_SQL
+    assert "\\ir grant_admin_by_archive_id.sql" in MEMBERSHIP_MIGRATION_SQL
+
+
+def test_admin_grant_is_database_driven_and_supports_multiple_users():
+    assert "-v archive_id=其他12位档案ID" in GRANT_ADMIN_SQL
+    assert "INSERT INTO user_roles" in GRANT_ADMIN_SQL
+    assert "ON CONFLICT (mini_user_id, role_code) DO NOTHING" in GRANT_ADMIN_SQL
 
 
 def test_schema_contains_later_added_fields():
@@ -114,6 +144,38 @@ def test_schema_contains_table_and_column_comments():
             "content",
             "contact",
             "status",
+            "reply",
+            "replied_by",
+            "replied_at",
+            "created_at",
+        ),
+        "roles": (
+            "code",
+            "name",
+            "description",
+            "rank",
+            "enabled",
+            "created_at",
+        ),
+        "permissions": (
+            "code",
+            "name",
+            "description",
+            "module",
+            "enabled",
+            "created_at",
+        ),
+        "role_permissions": (
+            "id",
+            "role_code",
+            "permission_code",
+            "created_at",
+        ),
+        "user_roles": (
+            "id",
+            "mini_user_id",
+            "role_code",
+            "expires_at",
             "created_at",
         ),
     }

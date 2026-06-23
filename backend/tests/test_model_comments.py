@@ -4,7 +4,11 @@ from app.models import (
     Feedback,
     HealthArchive,
     Message,
+    PermissionDefinition,
     UserProfile,
+    Role,
+    RolePermission,
+    UserRole,
 )
 
 
@@ -15,6 +19,10 @@ def test_all_model_tables_and_columns_have_comments():
         HealthArchive,
         Message,
         Feedback,
+        Role,
+        PermissionDefinition,
+        RolePermission,
+        UserRole,
     )
     for model in models:
         table = model.__table__
@@ -30,4 +38,8 @@ def test_all_business_models_are_registered():
         "health_archives",
         "messages",
         "feedback",
+        "roles",
+        "permissions",
+        "role_permissions",
+        "user_roles",
     }.issubset(Base.metadata.tables)
